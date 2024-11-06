@@ -7,7 +7,7 @@ use reqwest::{
 };
 use serde::{Deserialize, Serialize};
 
-const BILI_URL: &'static str = "https://api.bilibili.com";
+const BILI_URL: &'static str = "https://bilibili.com";
 
 const COOKIE_USER_ID: &'static str = "DedeUserID=";
 const COOKIE_SESSDATA: &'static str = "SESSDATA=";
@@ -48,6 +48,7 @@ pub struct APIClient {
     pub client: Client,
     pub token: UserToken,
     pub jar: Arc<Jar>,
+    pub cookies: Vec<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -79,7 +80,6 @@ impl UserToken {
             .ok_or(CheckCookieError::EmptyCookie)?;
 
         let cookies = cookies.to_str()?;
-
         let mut token = UserToken::default();
 
         for c in cookies.split(";") {
@@ -91,10 +91,10 @@ impl UserToken {
                 let (_, v) = c.split_at(COOKIE_SESSDATA.len());
                 token.token = v.to_string();
             } else if c.starts_with(COOKIE_BILI_JCT) {
-                let (_, v) = c.split_at(COOKIE_SESSDATA.len());
+                let (_, v) = c.split_at(COOKIE_BILI_JCT.len());
                 token.csrf = v.to_string();
             } else {
-                log::info!("read cookie: {}", c)
+                log::debug!("read cookie: {}", c)
             }
         }
 
@@ -107,17 +107,26 @@ impl UserToken {
 }
 
 impl APIClient {
-    pub fn new(token: UserToken, jar: Arc<Jar>) -> Result<Self, reqwest::Error> {
+    pub fn new(
+        token: UserToken,
+        jar: Arc<Jar>,
+        cookies: Vec<String>,
+    ) -> Result<Self, reqwest::Error> {
         let client = Client::builder()
             .cookie_provider(jar.clone())
             .connect_timeout(Duration::from_secs(3))
             .timeout(Duration::from_secs(5))
             .build()?;
-        Ok(Self { client, token, jar })
+        Ok(Self {
+            client,
+            token,
+            jar,
+            cookies,
+        })
     }
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct QrResult {
     url: String,
     refresh_token: String,
@@ -165,7 +174,7 @@ impl Into<Result<QrResult, QrResultError>> for QrResult {
 async fn check_qrcode(
     client: &Client,
     qrcode_key: &str,
-) -> Result<APIResult<QrResult>, reqwest::Error> {
+) -> Result<(APIResult<QrResult>, Vec<String>), reqwest::Error> {
     log::info!("get_bili_client by {}", qrcode_key);
     let form_param = [("qrcode_key", qrcode_key), ("source", "main-fe-header")];
     let resp = client
@@ -178,23 +187,40 @@ async fn check_qrcode(
         .send()
         .await?;
 
-    resp.json::<APIResult<QrResult>>().await
+    let header_cookies = resp.headers().get_all("set-cookie");
+    let mut cookies = Vec::new();
+
+    for cookie_value in header_cookies {
+        match cookie_value.to_str() {
+            Ok(cookie) => {
+                cookies.push(cookie.to_string());
+            }
+            Err(e) => {
+                log::warn!("login cookie to str error : {:?}", e)
+            }
+        }
+    }
+
+    Ok((resp.json::<APIResult<QrResult>>().await?, cookies))
 }
 
 async fn poll_tokens_from_bili(
     client: &Client,
     login_url: &LoginUrl,
-) -> Result<APIResult<QrResult>, QrResultError> {
+) -> Result<(APIResult<QrResult>, Vec<String>), QrResultError> {
     'check: loop {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-        let APIResult {
-            code,
-            message,
-            ttl,
-            ts,
-            data,
-        } = check_qrcode(client, &login_url.qrcode_key).await?;
+        let (
+            APIResult {
+                code,
+                message,
+                ttl,
+                ts,
+                data,
+            },
+            cookies,
+        ) = check_qrcode(client, &login_url.qrcode_key).await?;
 
         if code == 0 {
             if let Some(r) = data {
@@ -202,13 +228,16 @@ async fn poll_tokens_from_bili(
                 match r {
                     Ok(r) => {
                         log::info!("get_bili_client success");
-                        return Ok(APIResult {
-                            code,
-                            message,
-                            ttl,
-                            ts,
-                            data: Some(r),
-                        });
+                        return Ok((
+                            APIResult {
+                                code,
+                                message,
+                                ttl,
+                                ts,
+                                data: Some(r),
+                            },
+                            cookies,
+                        ));
                     }
                     Err(e) => {
                         log::info!("get_bili_client error: {}", e);
@@ -227,20 +256,23 @@ async fn poll_tokens_from_bili(
                 }
             }
         } else {
-            return Ok(APIResult {
-                code,
-                message,
-                ttl,
-                ts,
-                data: None,
-            });
+            return Ok((
+                APIResult {
+                    code,
+                    message,
+                    ttl,
+                    ts,
+                    data: None,
+                },
+                cookies,
+            ));
         }
     }
 }
 
 // api
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct APIResult<T> {
     #[serde(default)]
     pub code: i32,
@@ -253,7 +285,7 @@ pub struct APIResult<T> {
     pub data: Option<T>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct LoginUrl {
     pub url: String,
     pub qrcode_key: String,
@@ -286,13 +318,16 @@ impl LoginUrl {
             .timeout(Duration::from_secs(5))
             .build()?;
 
-        let APIResult {
-            code,
-            message,
-            ttl,
-            ts,
-            data,
-        } = poll_tokens_from_bili(&client, self).await?;
+        let (
+            APIResult {
+                code,
+                message,
+                ttl,
+                ts,
+                data,
+            },
+            cookies,
+        ) = poll_tokens_from_bili(&client, self).await?;
 
         if code != 0 || data.is_none() {
             Ok(APIResult {
@@ -304,7 +339,7 @@ impl LoginUrl {
             })
         } else {
             let token = UserToken::create_from_jar(jar.clone()).unwrap();
-            let client = APIClient::new(token, jar)?;
+            let client = APIClient::new(token, jar, cookies)?;
             Ok(APIResult {
                 code,
                 message,

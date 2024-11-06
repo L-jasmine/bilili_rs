@@ -16,6 +16,7 @@ use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 
 use log::{debug, error, info, warn};
 
+#[derive(Debug)]
 pub struct MsgStream {
     pub room_id: u64,
     pub rx: Receiver<ServerLiveMessage>,
@@ -74,7 +75,7 @@ pub enum LiveConnectError {
 pub async fn open_client(
     api_client: Arc<APIClient>,
     room_id: u64,
-    wx: Sender<ServerLiveMessage>,
+    tx: Sender<ServerLiveMessage>,
     max_retry: u32,
 ) -> Result<(), LiveConnectError> {
     let uid = api_client.token.uid.parse().unwrap();
@@ -117,7 +118,7 @@ pub async fn open_client(
         let (mut w_stream, mut r_stream) = ws_stream.split();
         let r = tokio::try_join!(
             connect_keep(&mut w_stream, ws_login),
-            loop_handle_msg(&mut r_stream, wx.clone())
+            loop_handle_msg(&mut r_stream, tx.clone())
         );
         info!("ws client close [{room_id}] {:?}", r);
         if let Err(LiveConnectError::TxClose) = r {
@@ -161,7 +162,7 @@ async fn loop_handle_msg(
             }
             Message::Binary(bin) => {
                 if let Err(e) = message::decode_from_server(bin, &mut msg_list) {
-                    error!("handler msg {:?}", e)
+                    warn!("handler msg {:?}", e)
                 }
                 while let Some(msg) = msg_list.pop_front() {
                     match &msg {

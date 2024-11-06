@@ -15,15 +15,22 @@ pub mod notification_msg {
     pub enum NotificationMsg {
         LIVE {},
         LIVE_ROOM_TOAST_MESSAGE {},
+        LIVE_INTERACT_GAME_STATE_CHANGE {},
         // 在2021年左右曾经出现过一段时间这个 key
         // #[serde(rename = "DANMU_MSG:4:0:2:2:2:0")]
         // DANMU_MSG_N {
         //     info: DanmuMsg,
         // },
+        #[serde(alias = "DANMU_MSG:3:7:1:1:1:1")]
         DANMU_MSG {
             info: DanmuMsg,
         },
         DANMU_AGGREGATION {
+            #[cfg(debug_assertions)]
+            #[serde(flatten)]
+            extra: serde_json::Value,
+        },
+        CARD_MSG {
             #[cfg(debug_assertions)]
             #[serde(flatten)]
             extra: serde_json::Value,
@@ -174,6 +181,7 @@ pub mod notification_msg {
         LIKE_INFO_V3_UPDATE {},
         LIKE_INFO_V3_CLICK {},
         GIFT_STAR_PROCESS {},
+        GIFT_PANEL_PLAN {},
         WIDGET_WISH_LIST {},
         GUARD_HONOR_THOUSAND {},
         WIDGET_GIFT_STAR_PROCESS {},
