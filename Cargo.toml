@@ -1,6 +1,6 @@
 [package]
 name = "bilili_rs"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["tcdk <458761603@qq.com>"]
 edition = "2021"
 license = "MIT"
@@ -31,4 +31,4 @@ inflate = "0.4"
 gzip = "0.1.2"
 byteorder = "1"
 
-thiserror = "1.0"
+thiserror = "2.0.3"
