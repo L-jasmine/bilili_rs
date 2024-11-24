@@ -465,3 +465,149 @@ impl APIClient {
         resp.json::<APIResult<RoomPlayInfo>>().await
     }
 }
+
+///
+/// # Example
+/// ```no_run
+/// let login_manager = LoginManager::create(3);
+/// let (login_url,api_client_rx) = login_manager.get_one_login_url().await.unwrap();
+/// // 让用户扫描 login_url.url 的二维码
+/// let api_client = api_client_rx.recv().await.unwrap();
+/// // save(client.cookies.join("\n"))
+/// ```
+
+#[derive(Debug, Clone)]
+pub struct LoginManager {
+    login_url_tx: tokio::sync::mpsc::Sender<LoginUrlTx>,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum LoginManagerError {
+    #[error("poll thread is stop")]
+    PollLoginStop,
+    #[error("get login url error: {0}")]
+    GetLoginUrlError(String),
+    #[error("login url channel closed")]
+    LoginUrlTxClosed,
+    #[error("login url is timeout")]
+    LoginUrlTimeout,
+    #[error("login failed: {0:?}")]
+    LoginFailed(#[from] LoginError),
+}
+
+pub struct APIClientRecv {
+    rx: tokio::sync::broadcast::Receiver<Arc<APIClient>>,
+}
+
+impl APIClientRecv {
+    pub async fn recv(&mut self) -> Result<Arc<APIClient>, LoginManagerError> {
+        self.rx
+            .recv()
+            .await
+            .map_err(|_| LoginManagerError::LoginUrlTimeout)
+    }
+}
+
+type APIClientRx = tokio::sync::broadcast::Receiver<Arc<APIClient>>;
+type LoginUrlTx = tokio::sync::oneshot::Sender<Result<(LoginUrl, APIClientRx), LoginManagerError>>;
+
+impl LoginManager {
+    pub fn create(retry_times: usize) -> Self {
+        let (login_url_tx, login_url_rx) = tokio::sync::mpsc::channel(1);
+        tokio::spawn(Self::poll_login(retry_times, login_url_rx));
+        Self { login_url_tx }
+    }
+
+    pub async fn get_one_login_url(&self) -> Result<(LoginUrl, APIClientRecv), LoginManagerError> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.login_url_tx
+            .send(tx)
+            .await
+            .map_err(|_| LoginManagerError::PollLoginStop)?;
+        let (login_url, api_client_rx) = rx
+            .await
+            .map_err(|_| LoginManagerError::LoginUrlTxClosed)??;
+        Ok((login_url, APIClientRecv { rx: api_client_rx }))
+    }
+
+    async fn poll_login(retry_times: usize, mut rx: tokio::sync::mpsc::Receiver<LoginUrlTx>) {
+        while let Some(tx) = rx.recv().await {
+            // 获取一个新的 login_url
+            match Self::get_login_url(retry_times).await {
+                Ok(login_url) => {
+                    let (api_client_tx, api_client_rx) = tokio::sync::broadcast::channel(1);
+
+                    if tx.send(Ok((login_url.clone(), api_client_rx))).is_ok() {
+                        let login_url_ = login_url.clone();
+
+                        // 等待 login_url 的扫描结果
+                        let recv_api_client =
+                            tokio::spawn(async move { login_url_.poll_tokens().await });
+
+                        // 如果有新的 login_url 请求，就直接发送已经获取到的 login_url 和 现在的 api_client_rx
+                        let recv_login_url = async {
+                            while let Some(tx) = rx.recv().await {
+                                let api_client_rx = api_client_tx.subscribe();
+                                let _ = tx.send(Ok((login_url.clone(), api_client_rx)));
+                            }
+                        };
+
+                        let client = tokio::select! {
+                            _ = recv_login_url => {
+                                // 到这基本上是因为 login_url_tx 被关闭了，没救了
+                                continue
+                            }
+                            client = recv_api_client => {client.unwrap()},
+                        };
+
+                        match client {
+                            Ok(client) => {
+                                if let Some(api_client) = client.data {
+                                    // 广播 token 给所有等待 login_url 的 rx
+                                    let _ = api_client_tx.send(Arc::new(api_client));
+                                } else {
+                                    log::error!(
+                                        "poll tokens failed: {}",
+                                        client.message.unwrap_or_default()
+                                    )
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("poll tokens failed: {}", e);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    let _ = tx.send(Err(e));
+                    continue;
+                }
+            }
+        }
+        log::warn!("login url channel closed");
+    }
+
+    async fn get_login_url(retry_times: usize) -> Result<LoginUrl, LoginManagerError> {
+        let mut result = String::new();
+        for _ in 0..retry_times {
+            let login_url = LoginUrl::get_login_url().await;
+            return match login_url {
+                Ok(login_url) => {
+                    if let Some(url) = login_url.data {
+                        Ok(url)
+                    } else {
+                        Err(LoginManagerError::GetLoginUrlError(
+                            login_url.message.unwrap_or_default(),
+                        ))
+                    }
+                }
+                Err(e) => {
+                    result = e.to_string();
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    continue;
+                }
+            };
+        }
+        Err(LoginManagerError::GetLoginUrlError(result))
+    }
+}
