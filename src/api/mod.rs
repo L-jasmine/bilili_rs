@@ -7,6 +7,8 @@ use reqwest::{
 };
 use serde::{Deserialize, Serialize};
 
+mod wbi;
+
 const BILI_URL: &'static str = "https://bilibili.com";
 
 const COOKIE_USER_ID: &'static str = "DedeUserID=";
@@ -351,6 +353,19 @@ impl LoginUrl {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Gift {
+    pub gift_id: u64,
+    pub price: u64,
+}
+
+impl Gift {
+    const 人气票: Self = Self {
+        gift_id: 33988,
+        price: 100,
+    };
+}
+
 impl APIClient {
     pub async fn send_barrage(
         &self,
@@ -382,6 +397,104 @@ impl APIClient {
             .await?;
 
         resp.json::<APIResult<serde_json::Value>>().await
+    }
+
+    pub async fn like_report_v3(
+        &self,
+        room_id: &str,
+        anchor_id: &str,
+        click_time: &str,
+    ) -> Result<APIResult<serde_json::Value>, reqwest::Error> {
+        let k = wbi::get_wbi_keys().await?;
+
+        let param = [
+            ("click_time", click_time.to_string()),
+            ("room_id", room_id.to_string()),
+            ("uid", self.token.uid.to_string()),
+            ("anchor_id", anchor_id.to_string()),
+            ("csrf", self.token.csrf.to_string()),
+        ];
+
+        let param = wbi::encode_wbi(param.to_vec(), k);
+        let url= format!("https://api.live.bilibili.com/xlive/app-ucenter/v1/like_info_v3/like/likeReportV3?{param}");
+
+        let resp = self
+            .client
+            .post(url)
+            .header(USER_AGENT, UA)
+            .header(reqwest::header::REFERER, "https://live.bilibili.com")
+            .send()
+            .await?;
+
+        resp.json::<APIResult<serde_json::Value>>().await
+    }
+
+    pub async fn send_gift(
+        &self,
+        room_id: &str,
+        ruid: &str,
+        gift: Gift,
+        gift_num: u64,
+    ) -> Result<APIResult<serde_json::Value>, reqwest::Error> {
+        let k = wbi::get_wbi_keys().await?;
+
+        let param = [
+            ("uid", self.token.uid.to_string()),
+            ("gift_id", gift.gift_id.to_string()),
+            ("ruid", ruid.to_string()),
+            ("send_ruid", "0".to_string()),
+            ("gift_num", gift_num.to_string()),
+            ("coin_type", "gold".to_string()),
+            ("bag_id", "0".to_string()),
+            ("platform", "pc".to_string()),
+            ("biz_code", "Live".to_string()),
+            ("biz_id", room_id.to_string()),
+            ("storm_beat_id", "0".to_string()),
+            ("metadata", "".to_string()),
+            ("price", gift.price.to_string()),
+            ("receive_users", "".to_string()),
+            ("live_statistics", "{\"pc_client\":\"pcWeb\",\"jumpfrom\":\"72001\",\"room_category\":\"0\",\"source_event\":0,\"official_channel\":{\"program_room_id\":\"-99998\",\"program_up_id\":\"-99998\"}}".to_string()),
+            ("statistics", "{\"platform\":5,\"pc_client\":\"pcWeb\",\"appId\":100}".to_string()),
+            ("csrf", self.token.csrf.to_string())];
+
+        let param = wbi::encode_wbi(param.to_vec(), k);
+        let url = format!("https://api.live.bilibili.com/xlive/revenue/v1/gift/sendGold?{param}");
+
+        let resp = self
+            .client
+            .post(url)
+            .header(USER_AGENT, UA)
+            .header(reqwest::header::REFERER, "https://live.bilibili.com")
+            .send()
+            .await?;
+
+        resp.json::<APIResult<serde_json::Value>>().await
+    }
+}
+
+#[tokio::test]
+async fn test_send_gift() {
+    let tokens = std::fs::read_to_string("token").unwrap();
+    let tokens: Vec<String> = tokens.split('\n').map(|s| s.to_string()).collect();
+    match UserToken::create_from_tokens(&tokens) {
+        Ok((token, jar)) => match APIClient::new(token, jar, tokens) {
+            Ok(client) => {
+                let r = client
+                    .send_gift("1804464760", "1512598845", Gift::人气票, 1)
+                    .await;
+                println!("r:{r:?}");
+                let r = client
+                    .like_report_v3("1804464760", "1512598845", "10")
+                    .await;
+                println!("r:{r:?}");
+            }
+            Err(e) => {
+                println!("create api client failed: {}", e);
+            }
+        },
+        Err(e) => {
+            println!("create api client from tokens failed: {}", e);
+        }
     }
 }
 
