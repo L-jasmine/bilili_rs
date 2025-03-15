@@ -4,7 +4,7 @@ use crate::api::{APIClient, APIResult, LiveHost};
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
 pub use message::notification_msg::NotificationMsg;
-pub use message::{ClientLiveMessage, MsgDecodeError, ServerLiveMessage, WsLogin};
+pub use message::{ClientLiveMessage, ServerLiveMessage, WsLogin};
 use std::collections::LinkedList;
 use std::sync::Arc;
 use tokio::net::TcpStream;
@@ -129,7 +129,7 @@ pub async fn open_client(
         if d > (60 * 30) {
             reconnect_time = 0;
         }
-        let time = if reconnect_time <= 20 { 10 } else { 300 };
+        let time = if reconnect_time <= 10 { 10 } else { 300 };
         info!("reconnect [{room_id}] [{reconnect_time}] after {time} secs");
         tokio::time::sleep(Duration::from_secs(time)).await;
         info!("reconnect [{room_id}] start");
@@ -162,7 +162,11 @@ async fn loop_handle_msg(
             }
             Message::Binary(bin) => {
                 if let Err(e) = message::decode_from_server(bin, &mut msg_list) {
-                    warn!("handler msg {:?}", e)
+                    if matches!(e, message::MsgDecodeError::DecodeBodyError(_)) {
+                        debug!("handler msg {:?}", e);
+                    } else {
+                        warn!("handler msg {:?}", e);
+                    }
                 }
                 while let Some(msg) = msg_list.pop_front() {
                     match &msg {
