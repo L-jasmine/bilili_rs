@@ -360,8 +360,12 @@ pub struct Gift {
 }
 
 impl Gift {
-    const 人气票: Self = Self {
+    pub const 人气票: Self = Self {
         gift_id: 33988,
+        price: 100,
+    };
+    pub const 喜庆爆竹: Self = Self {
+        gift_id: 31569,
         price: 100,
     };
 }
