@@ -551,11 +551,14 @@ impl APIClient {
         &self,
         room_id: u64,
     ) -> Result<APIResult<DanmuInfoResult>, reqwest::Error> {
+        let k = wbi::get_wbi_keys().await?;
+
+        let param = vec![("id", room_id.to_string()), ("type", "0".to_string())];
+        let param = wbi::encode_wbi(param, k);
         let resp = self
             .client
             .get(format!(
-                "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?id={}&type=0",
-                room_id
+                "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?{param}",
             ))
             .header(USER_AGENT, UA)
             .send()
