@@ -320,6 +320,14 @@ impl LoginUrl {
             .timeout(Duration::from_secs(5))
             .build()?;
 
+        // 访问一下 bilibili.com，触发 cookie 的生成
+        let _resp = client
+            .head("https://www.bilibili.com/")
+            .header(USER_AGENT, UA)
+            .header(ACCEPT, "application/json, text/plain, */*")
+            .send()
+            .await?;
+
         let (
             APIResult {
                 code,
