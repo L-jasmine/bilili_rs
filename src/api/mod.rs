@@ -376,6 +376,16 @@ impl Gift {
         gift_id: 31569,
         price: 100,
     };
+
+    pub const 贴贴: Self = Self {
+        gift_id: 35430,
+        price: 1000,
+    };
+
+    pub const 做我的小猫: Self = Self {
+        gift_id: 34296,
+        price: 9900,
+    };
 }
 
 impl APIClient {
