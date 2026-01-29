@@ -421,6 +421,7 @@ impl APIClient {
         resp.json::<APIResult<serde_json::Value>>().await
     }
 
+    /// 点赞直播间
     pub async fn like_report_v3(
         &self,
         room_id: &str,
@@ -491,6 +492,65 @@ impl APIClient {
             .await?;
 
         resp.json::<APIResult<serde_json::Value>>().await
+    }
+
+    /// 分享直播间
+    pub async fn share_room(
+        &self,
+        room_id: &str,
+    ) -> Result<APIResult<serde_json::Value>, reqwest::Error> {
+        // let k = wbi::get_wbi_keys().await?;
+
+        let param = [
+            ("roomid", room_id.to_string()),
+            ("interact_type", "3".to_string()),
+            ("uid", self.token.uid.to_string()),
+            ("csrf", self.token.csrf.to_string()),
+            ("csrf_token", self.token.csrf.to_string()),
+            ("visit_id", "".to_string()),
+        ];
+
+        // let param = wbi::encode_wbi(param.to_vec(), k);
+        let url = format!("https://api.live.bilibili.com/xlive/web-room/v1/index/TrigerInteract");
+
+        let resp = self
+            .client
+            .post(url)
+            .header(USER_AGENT, UA)
+            .header(
+                reqwest::header::REFERER,
+                format!("https://live.bilibili.com/{room_id}"),
+            )
+            .form(&param)
+            .send()
+            .await?;
+
+        resp.json::<APIResult<serde_json::Value>>().await
+    }
+}
+
+#[tokio::test]
+//  cargo test --package bilili_rs --lib -- api::test_share_room --exact --nocapture
+async fn test_share_room() {
+    let tokens = std::fs::read_to_string("token").unwrap();
+    let tokens: Vec<String> = tokens.split('\n').map(|s| s.to_string()).collect();
+    match UserToken::create_from_tokens(&tokens) {
+        Ok((token, jar)) => match APIClient::new(token, jar, tokens) {
+            Ok(client) => {
+                let r = client.share_room("30193402").await;
+                println!("r:{r:?}");
+                let r = client
+                    .like_report_v3("30193402", "3494370399488563", "10")
+                    .await;
+                println!("r:{r:?}");
+            }
+            Err(e) => {
+                println!("create api client failed: {}", e);
+            }
+        },
+        Err(e) => {
+            println!("create api client from tokens failed: {}", e);
+        }
     }
 }
 
@@ -597,8 +657,7 @@ impl APIClient {
             ))
             .header(USER_AGENT, UA)
             .send()
-            .await
-            ?;
+            .await?;
 
         resp.json::<APIResult<RoomPlayInfo>>().await
     }
