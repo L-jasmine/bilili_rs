@@ -113,8 +113,7 @@ pub async fn run_login(url_only: bool, output: String) -> Result<()> {
         run_poll(login_url, output).await
     } else {
         // 状态文件不存在，生成二维码
-        let login_url = run_qr(url_only).await?;
-        // 生成二维码后自动开始轮询
-        run_poll(login_url, output).await
+        let _ = run_qr(url_only).await?;
+        Ok(())
     }
 }

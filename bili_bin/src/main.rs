@@ -5,6 +5,7 @@ mod like;
 mod login;
 mod room;
 mod share;
+mod user;
 
 use clap::{Parser, Subcommand};
 
@@ -80,6 +81,14 @@ enum Commands {
         #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
         token_file: String,
     },
+    /// 获取用户信息
+    User {
+        /// 用户 UID (mid)
+        mid: u64,
+        /// Token 文件路径
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        token_file: String,
+    },
 }
 
 #[tokio::main]
@@ -95,7 +104,10 @@ async fn main() {
             message,
             token_file,
         } => barrage::run_barrage(room_id, message, token_file).await,
-        Commands::Share { room_id, token_file } => share::run_share(room_id, token_file).await,
+        Commands::Share {
+            room_id,
+            token_file,
+        } => share::run_share(room_id, token_file).await,
         Commands::Like {
             room_id,
             anchor_id,
@@ -109,7 +121,11 @@ async fn main() {
             gift_num,
             token_file,
         } => gift::run_gift(room_id, ruid, gift_name, gift_num, token_file).await,
-        Commands::Room { room_id, token_file } => room::run_room_info(room_id, token_file).await,
+        Commands::Room {
+            room_id,
+            token_file,
+        } => room::run_room_info(room_id, token_file).await,
+        Commands::User { mid, token_file } => user::run_user_info(mid, token_file).await,
     };
 
     if let Err(e) = r {
