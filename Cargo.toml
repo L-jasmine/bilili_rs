@@ -8,6 +8,10 @@ description = "A bilibili sdk"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = ["bili_bin"]
+
+
 [dependencies]
 log = "0.4"
 reqwest = { version = "0.12.4", default-features = false, features = [
