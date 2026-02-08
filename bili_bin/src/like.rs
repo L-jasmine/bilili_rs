@@ -5,15 +5,15 @@ use crate::client::load_client;
 pub async fn run_like(
     room_id: String,
     anchor_id: String,
-    click_time: String,
+    click_count: u64,
     token_file: String,
 ) -> Result<()> {
-    log::info!("正在给直播间 {} 点赞...", room_id);
+    log::info!("正在给直播间 {} 点赞，点击次数: {}...", room_id, click_count);
 
     let client = load_client(&token_file)?;
 
     match client
-        .like_report_v3(&room_id, &anchor_id, &click_time)
+        .like_report_v3(&room_id, &anchor_id, &click_count.to_string())
         .await
     {
         Ok(result) => {

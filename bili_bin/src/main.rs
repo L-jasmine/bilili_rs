@@ -52,8 +52,8 @@ enum Commands {
         room_id: String,
         /// 主播 ID
         anchor_id: String,
-        /// 点击时间
-        click_time: String,
+        /// 点击次数
+        click_count: u64,
         /// Token 文件路径
         #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
         token_file: String,
@@ -99,9 +99,9 @@ async fn main() {
         Commands::Like {
             room_id,
             anchor_id,
-            click_time,
+            click_count,
             token_file,
-        } => like::run_like(room_id, anchor_id, click_time, token_file).await,
+        } => like::run_like(room_id, anchor_id, click_count, token_file).await,
         Commands::Gift {
             room_id,
             ruid,
