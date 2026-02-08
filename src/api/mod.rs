@@ -623,6 +623,26 @@ pub struct RoomPlayInfo {
     pub is_locked: bool,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct LiveRoom {
+    pub roomid: u64,
+    pub title: String,
+    /// 0 关播, 1 直播, 2 轮播
+    #[serde(rename = "liveStatus")]
+    pub live_status: u32,
+    #[serde(rename = "roomStatus")]
+    pub room_status: u32,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UserInfo {
+    pub mid: u64,
+    pub name: String,
+    pub sex: String,
+    #[serde(default)]
+    pub live_room: Option<LiveRoom>,
+}
+
 impl APIClient {
     /// 获取弹幕服务器信息
     pub async fn get_danmu_info(
@@ -660,6 +680,45 @@ impl APIClient {
             .await?;
 
         resp.json::<APIResult<RoomPlayInfo>>().await
+    }
+
+    // 获取用户信息
+    pub async fn get_user_info(&self, mid: u64) -> Result<APIResult<UserInfo>, reqwest::Error> {
+        let k = wbi::get_wbi_keys().await?;
+
+        let param = vec![("platform", "web".to_string()), ("mid", mid.to_string())];
+        let param = wbi::encode_wbi(param, k);
+
+        let resp = self
+            .client
+            .get(format!(
+                "https://api.bilibili.com/x/space/wbi/acc/info?{param}"
+            ))
+            .header(USER_AGENT, UA)
+            .send()
+            .await?;
+
+        resp.json::<APIResult<UserInfo>>().await
+    }
+}
+
+#[tokio::test]
+async fn test_get_user_info() {
+    let tokens = std::fs::read_to_string("token").unwrap();
+    let tokens: Vec<String> = tokens.split('\n').map(|s| s.to_string()).collect();
+    match UserToken::create_from_tokens(&tokens) {
+        Ok((token, jar)) => match APIClient::new(token, jar, tokens) {
+            Ok(client) => {
+                let r = client.get_user_info(3494370399488563).await;
+                println!("r:{r:?}");
+            }
+            Err(e) => {
+                println!("create api client failed: {}", e);
+            }
+        },
+        Err(e) => {
+            println!("create api client from tokens failed: {}", e);
+        }
     }
 }
 
