@@ -3,6 +3,7 @@ mod client;
 mod gift;
 mod like;
 mod login;
+mod refresh;
 mod room;
 mod share;
 mod user;
@@ -28,6 +29,12 @@ enum Commands {
         /// 登录成功后保存 cookies 到指定文件
         #[arg(short, long, env = "BILI_TOKEN_FILE")]
         output: String,
+    },
+    /// 刷新 token 文件（补充 buvid3/buvid4 等设备指纹）
+    RefreshToken {
+        /// Token 文件路径
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        token_file: String,
     },
     /// 发送弹幕
     Barrage {
@@ -99,6 +106,7 @@ async fn main() {
 
     let r = match cli.command {
         Commands::Login { url_only, output } => login::run_login(url_only, output).await,
+        Commands::RefreshToken { token_file } => refresh::run_refresh_token(token_file).await,
         Commands::Barrage {
             room_id,
             message,

@@ -16,7 +16,7 @@ const COOKIE_SESSDATA: &'static str = "SESSDATA=";
 const COOKIE_BILI_JCT: &'static str = "bili_jct=";
 
 const UA: &'static str =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 #[derive(Debug, Clone, Default)]
 pub struct UserToken {
@@ -348,8 +348,60 @@ impl LoginUrl {
                 data: None,
             })
         } else {
+            // 访问直播间，获取 LIVE_BUVID 等直播相关 cookies
+            let _resp = client
+                .get("https://live.bilibili.com/")
+                .header(USER_AGENT, UA)
+                .header(ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+                .header(REFERER, "https://www.bilibili.com/")
+                .send()
+                .await?;
+
+            // 调用 fingerprint API 获取 buvid3 和 buvid4
+            let finger_resp = client
+                .get("https://api.bilibili.com/x/frontend/finger/spi")
+                .header(USER_AGENT, UA)
+                .send()
+                .await?;
+
+            if let Ok(finger_json) = finger_resp.json::<APIResult<serde_json::Value>>().await {
+                if let Some(data) = finger_json.data {
+                    let b_3 = data.get("b_3").and_then(|v| v.as_str()).unwrap_or("");
+                    let b_4 = data.get("b_4").and_then(|v| v.as_str()).unwrap_or("");
+
+                    log::info!("从 fingerprint API 获取: buvid3={}, buvid4={}", b_3, b_4);
+
+                    // 手动添加到 jar（带 Domain 属性）
+                    let domain_url = BILI_URL.parse().unwrap();
+                    if !b_3.is_empty() {
+                        jar.add_cookie_str(&format!("buvid3={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647", b_3), &domain_url);
+                    }
+                    if !b_4.is_empty() {
+                        jar.add_cookie_str(&format!("buvid4={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647", b_4), &domain_url);
+                    }
+                }
+            }
+
+            // 提取所有 cookies（包括设备指纹）
+            let all_cookies = extract_all_cookies(jar.clone());
+            let _cookies = cookies; // 标记为未使用
+
+            // 打印所有 cookies 用于调试
+            log::info!("========== 所有 Cookies ==========");
+            for c in &all_cookies {
+                let name = c.split('=').next().unwrap_or("");
+                if name.contains("buvid") || name.contains("fingerprint") || name.contains("_uuid") {
+                    log::info!("【设备指纹】{}", c);
+                } else if name.contains("DedeUserID") || name.contains("SESSDATA") || name.contains("bili_jct") {
+                    log::info!("【认证信息】{}", c);
+                } else {
+                    log::info!("{}", c);
+                }
+            }
+            log::info!("==================================");
+
             let token = UserToken::create_from_jar(jar.clone()).unwrap();
-            let client = APIClient::new(token, jar, cookies)?;
+            let client = APIClient::new(token, jar, all_cookies)?;
             Ok(APIResult {
                 code,
                 message,
@@ -359,6 +411,40 @@ impl LoginUrl {
             })
         }
     }
+}
+
+/// 从 Jar 中提取所有 cookies 并转换为 Vec<String> 格式
+/// 每个 cookie 包含完整的 Set-Cookie 格式（含 Domain、Path 等）
+fn extract_all_cookies(jar: Arc<Jar>) -> Vec<String> {
+    let mut cookies = Vec::new();
+    let mut seen_names = std::collections::HashSet::new();
+    let domains = vec![
+        ("https://bilibili.com", ".bilibili.com"),
+        ("https://live.bilibili.com", ".bilibili.com"),
+    ];
+
+    for (domain_url_str, cookie_domain) in domains {
+        if let Ok(domain_url) = domain_url_str.parse::<reqwest::Url>() {
+            if let Some(cookie_headers) = jar.cookies(&domain_url) {
+                if let Ok(cookie_str) = cookie_headers.to_str() {
+                    // 将 "name=value; name2=value2" 格式转换为多行，并添加 Domain 属性
+                    for c in cookie_str.split(';') {
+                        let c = c.trim();
+                        if !c.is_empty() && c.contains('=') {
+                            let name = c.split('=').next().unwrap_or("");
+                            if !seen_names.contains(name) {
+                                seen_names.insert(name.to_string());
+                                // 添加完整的 Set-Cookie 格式
+                                cookies.push(format!("{}; Path=/; Domain={}; Max-Age=2147483647", c, cookie_domain));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    cookies
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -436,16 +522,26 @@ impl APIClient {
             ("uid", self.token.uid.to_string()),
             ("anchor_id", anchor_id.to_string()),
             ("csrf", self.token.csrf.to_string()),
+            ("web_location", "444.8".to_string()),
         ];
 
         let param = wbi::encode_wbi(param.to_vec(), k);
-        let url= format!("https://api.live.bilibili.com/xlive/app-ucenter/v1/like_info_v3/like/likeReportV3?{param}");
+        let url = format!("https://api.live.bilibili.com/xlive/app-ucenter/v1/like_info_v3/like/likeReportV3?{param}");
 
         let resp = self
             .client
             .post(url)
             .header(USER_AGENT, UA)
-            .header(reqwest::header::REFERER, "https://live.bilibili.com")
+            .header(reqwest::header::CONTENT_LENGTH, "0")
+            .header(reqwest::header::REFERER, format!("https://live.bilibili.com/{room_id}"))
+            .header("Origin", "https://live.bilibili.com")
+            .header("Accept", "*/*")
+            .header("sec-ch-ua", r#""Chromium";v="146", "Not-A.Brand";v="24""#)
+            .header("sec-ch-ua-mobile", "?0")
+            .header("sec-ch-ua-platform", r#""Windows""#)
+            .header("sec-fetch-dest", "empty")
+            .header("sec-fetch-mode", "cors")
+            .header("sec-fetch-site", "same-site")
             .send()
             .await?;
 
@@ -537,11 +633,9 @@ async fn test_share_room() {
     match UserToken::create_from_tokens(&tokens) {
         Ok((token, jar)) => match APIClient::new(token, jar, tokens) {
             Ok(client) => {
-                let r = client.share_room("30193402").await;
+                let r = client.share_room("32534986").await;
                 println!("r:{r:?}");
-                let r = client
-                    .like_report_v3("30193402", "3494370399488563", "10")
-                    .await;
+                let r = client.like_report_v3("32534986", "416546466", "100").await;
                 println!("r:{r:?}");
             }
             Err(e) => {
