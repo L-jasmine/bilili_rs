@@ -1,6 +1,6 @@
 ---
 name: bilili-skill
-description: Bilibili 直播间 CLI 工具。使用此技能执行 Bilibili 直播间操作：登录、发送弹幕、送礼物、点赞、分享、获取房间信息、获取用户信息。
+description: Bilibili 直播间 CLI 工具。使用此技能执行 Bilibili 直播间操作：登录、刷新 token、发送弹幕、送礼物、点赞、分享、获取房间信息、获取用户信息。
 ---
 
 ## bili_bin - Bilibili 直播间命令行工具
@@ -27,6 +27,27 @@ Tip: 有时不知道房间号或者只有主播名字时，可以尝试通过 We
 2. 让用户使用哔哩哔哩手机 App 扫描二维码
 3. 用户回答已经扫码后，再次执行 `login` 命令，程序会检测到状态文件并轮询登录状态
 4. 登录成功后保存 cookies 到指定文件（如 `token.txt`），并自动删除 `.bili_login_state`
+
+**注意**：登录成功后，token 文件会自动包含设备指纹 cookies (buvid3/buvid4)，这些是点赞等操作所必需的。
+
+### 刷新 Token
+
+为现有的 token 文件补充设备指纹 cookies (buvid3/buvid4)，无需重新登录：
+
+```bash
+./scripts/bili_bin refresh-token
+
+# 指定 token 文件
+./scripts/bili_bin refresh-token -t token.txt
+
+# 使用环境变量
+export BILI_TOKEN_FILE=token.txt
+./scripts/bili_bin refresh-token
+```
+
+**使用场景**：
+- 如果点赞功能返回 -352 错误（风控校验失败），通常是缺少设备指纹 cookies
+- 使用老版本登录的 token 文件可以用此命令更新
 
 ### 发送弹幕
 
