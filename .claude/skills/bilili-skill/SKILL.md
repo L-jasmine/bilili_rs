@@ -9,6 +9,30 @@ description: Bilibili 直播间 CLI 工具。使用此技能执行 Bilibili 直�
 
 Tip: 有时不知道房间号或者只有主播名字时，可以尝试通过 WebSearch 来获取。
 
+### 安装
+
+从 GitHub Releases 下载最新版本：
+
+```bash
+# 自动检测平台并下载
+curl -sL "https://api.github.com/repos/L-jasmine/bilili_rs/releases/latest" | \
+  grep "browser_download_url" | \
+  grep "$(uname | tr '[:upper:]' '[:lower:]')" | \
+  cut -d '"' -f 4 | \
+  xargs -n 1 curl -sLO
+
+# 或直接下载指定平台
+wget https://github.com/L-jasmine/bilili_rs/releases/latest/download/bili_bin-linux   # Linux
+wget https://github.com/L-jasmine/bilili_rs/releases/latest/download/bili_bin-macos   # macOS
+wget https://github.com/L-jasmine/bilili_rs/releases/latest/download/bili_bin.exe     # Windows
+
+# 重命名并添加执行权限
+mv bili_bin-* bili_bin
+chmod +x bili_bin
+
+# Windows 用户重命名为 bili_bin.exe 即可
+```
+
 ### Token 文件格式
 
 Token 文件使用 **TOML 格式**，支持多用户管理：
