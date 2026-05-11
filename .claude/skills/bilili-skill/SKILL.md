@@ -5,89 +5,140 @@ description: Bilibili 直播间 CLI 工具。使用此技能执行 Bilibili 直�
 
 ## bili_bin - Bilibili 直播间命令行工具
 
-用法：`./scripts/bili_bin <command> [args...]`
+用法：`bili_bin <command> [args...]`
 
 Tip: 有时不知道房间号或者只有主播名字时，可以尝试通过 WebSearch 来获取。
+
+### Token 文件格式
+
+Token 文件使用 **TOML 格式**，支持多用户管理：
+
+```toml
+[uid1]
+token = """
+buvid3=...; Path=/; Domain=.bilibili.com; Max-Age=2147483647
+buvid4=...; Path=/; Domain=.bilibili.com; Max-Age=2147483647
+SESSDATA=...; Path=/; Domain=bilibili.com; Expires=...
+bili_jct=...; Path=/; Domain=bilibili.com; Expires=...
+DedeUserID=uid1; Path=/; Domain=bilibili.com; Expires=...
+...
+"""
+deadline = "2026-07-09T10:41:07.088606900+08:00"
+
+[uid2]
+token = """..."""
+deadline = "..."
+```
 
 ### 登录
 
 ```bash
-# 步骤 1: 生成二维码
-./scripts/bili_bin login -o token.txt
+# 步骤 1: 生成二维码（输出文件必须以 .toml 结尾）
+bili_bin login -o tokens.toml
 
 # 步骤 2: 用户扫码后，再次执行相同命令完成登录
-./scripts/bili_bin login -o token.txt
+bili_bin login -o tokens.toml
 
 # 只输出二维码链接（不显示图形）
-./scripts/bili_bin login --url-only -o token.txt
+bili_bin login --url-only -o tokens.toml
 ```
 
 登录流程：
 1. 首次运行生成二维码，保存到 `qrcode.svg` 和 `.bili_login_state`
 2. 让用户使用哔哩哔哩手机 App 扫描二维码
 3. 用户回答已经扫码后，再次执行 `login` 命令，程序会检测到状态文件并轮询登录状态
-4. 登录成功后保存 cookies 到指定文件（如 `token.txt`），并自动删除 `.bili_login_state`
+4. 登录成功后保存 cookies 到指定的 TOML 文件，并自动删除 `.bili_login_state`
 
-**注意**：登录成功后，token 文件会自动包含设备指纹 cookies (buvid3/buvid4)，这些是点赞等操作所必需的。
+**注意**：登录成功后，token 会自动包含设备指纹 cookies (buvid3/buvid4)，这些是点赞等操作所必需的。
 
 ### 刷新 Token
 
 为现有的 token 文件补充设备指纹 cookies (buvid3/buvid4)，无需重新登录：
 
 ```bash
-./scripts/bili_bin refresh-token
+# 刷新所有 token（每个 token 获取独立的 fingerprint）
+bili_bin refresh-token -t tokens.toml
 
-# 指定 token 文件
-./scripts/bili_bin refresh-token -t token.txt
+# 只刷新指定 uid 的 token
+bili_bin refresh-token -t tokens.toml --uid 123456
 
 # 使用环境变量
-export BILI_TOKEN_FILE=token.txt
-./scripts/bili_bin refresh-token
+export BILI_TOKEN_FILE=tokens.toml
+bili_bin refresh-token
 ```
 
 **使用场景**：
 - 如果点赞功能返回 -352 错误（风控校验失败），通常是缺少设备指纹 cookies
 - 使用老版本登录的 token 文件可以用此命令更新
 
+### 批量操作与 --uid 参数
+
+支持以下两种模式：
+
+1. **指定 `--uid`**：只对指定用户执行操作
+2. **不指定 `--uid`**：对所有 token 执行操作（批量模式）
+
+```bash
+# 只用 uid=123456 的账号点赞
+bili_bin like 8765806 531251 10 -t tokens.toml --uid 123456
+
+# 用所有账号点赞（批量模式）
+bili_bin like 8765806 531251 10 -t tokens.toml
+```
+
+**注意**：`room-info` 和 `user-info` 命令**必须**指定 `--uid`。
+
 ### 发送弹幕
 
 ```bash
-./scripts/bili_bin barrage <房间号> <弹幕内容>
+# 指定 uid 发送
+bili_bin barrage <房间号> <弹幕内容> --uid 123456
 
-# 示例
-./scripts/bili_bin barrage 123456 "你好直播间"
+# 批量发送（所有账号）
+bili_bin barrage <房间号> <弹幕内容>
 ```
 
 ### 分享直播间
 
 ```bash
-./scripts/bili_bin share <房间号>
+# 指定 uid 分享
+bili_bin share <房间号> --uid 123456
+
+# 批量分享（所有账号）
+bili_bin share <房间号>
 ```
 
 ### 点赞直播间
 
 ```bash
-./scripts/bili_bin like <房间号> <主播ID> <点击次数>
+# 指定 uid 点赞
+bili_bin like <房间号> <主播ID> <点击次数> --uid 123456
 
-# 示例
-./scripts/bili_bin like 123456 789 "10"
+# 批量点赞（所有账号）
+bili_bin like <房间号> <主播ID> <点击次数>
 ```
 
 ### 送礼物
 
 ```bash
-./scripts/bili_bin gift <房间号> <主播UID> <礼物名称> <数量>
+# 指定 uid 送礼物
+bili_bin gift <房间号> <主播UID> <礼物名称> <数量> --uid 123456
+
+# 批量送礼物（所有账号）
+bili_bin gift <房间号> <主播UID> <礼物名称> <数量>
 
 # 可用礼物: 人气票, 喜庆爆竹, 贴贴, 做我的小猫
 # 示例
-./scripts/bili_bin gift 123456 789 "人气票" 1
-./scripts/bili_bin gift 123456 789 "贴贴" 5
+bili_bin gift 123456 789 "人气票" 1
+bili_bin gift 123456 789 "贴贴" 5
 ```
 
 ### 获取房间信息
 
+**必须指定 `--uid`**：
+
 ```bash
-./scripts/bili_bin room <房间号>
+bili_bin room-info <房间号> --uid 123456
 
 # 输出示例
 # 直播间信息:
@@ -100,11 +151,10 @@ export BILI_TOKEN_FILE=token.txt
 
 ### 获取用户信息
 
-```bash
-./scripts/bili_bin user <用户UID>
+**必须指定 `--uid`**：
 
-# 示例
-./scripts/bili_bin user 12345
+```bash
+bili_bin user-info <用户UID> --uid 123456
 
 # 输出示例
 # 用户信息:
@@ -122,17 +172,17 @@ export BILI_TOKEN_FILE=token.txt
 
 ```bash
 # 使用环境变量（推荐）
-export BILI_TOKEN_FILE=token.txt
-./scripts/bili_bin barrage 123456 "hello"
+export BILI_TOKEN_FILE=tokens.toml
+bili_bin barrage 123456 "hello"
 
 # 或每次指定
-./scripts/bili_bin barrage 123456 "hello" -t token.txt
+bili_bin barrage 123456 "hello" -t tokens.toml
 ```
 
 ### 查看帮助
 
 ```bash
-./scripts/bili_bin --help
-./scripts/bili_bin barrage --help
-./scripts/bili_bin gift --help
+bili_bin --help
+bili_bin barrage --help
+bili_bin gift --help
 ```
