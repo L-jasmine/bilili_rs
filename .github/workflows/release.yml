@@ -42,7 +42,7 @@ jobs:
           fi
 
       - name: Build
-        run: cargo build --release
+        run: cargo build --release -p bili_bin
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
