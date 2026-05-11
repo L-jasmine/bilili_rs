@@ -22,13 +22,10 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
             artifact_name: bili_bin
           - os: macos-latest
-            target: x86_64-apple-darwin
             artifact_name: bili_bin
           - os: windows-latest
-            target: x86_64-pc-windows-msvc
             artifact_name: bili_bin.exe
     steps:
       - name: Checkout
@@ -44,13 +41,13 @@ jobs:
           fi
 
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}-binary
-          path: target/${{ matrix.target }}/${{ matrix.artifact_name }}
+          name: ${{ matrix.os }}-binary
+          path: target/release/${{ matrix.artifact_name }}
 
   release:
     needs: build
@@ -106,7 +103,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          files: artifacts/x86_64-unknown-linux-gnu-binary/bili_bin
+          files: artifacts/ubuntu-latest-binary/bili_bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -114,7 +111,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          files: artifacts/x86_64-apple-darwin-binary/bili_bin
+          files: artifacts/macos-latest-binary/bili_bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -122,6 +119,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          files: artifacts/x86_64-pc-windows-msvc-binary/bili_bin.exe
+          files: artifacts/windows-latest-binary/bili_bin.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
