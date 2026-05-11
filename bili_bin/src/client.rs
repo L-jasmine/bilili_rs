@@ -66,12 +66,28 @@ pub fn load_all_clients(token_file: &str) -> Result<Vec<ClientWithUid>> {
             })
             .collect();
 
-        let (token, jar) = UserToken::create_from_tokens(&tokens)?;
-        let client = APIClient::new(token, jar, tokens)
-            .map_err(|e| anyhow::anyhow!("创建 uid={} 的 API 客户端失败: {}", uid, e))?;
-        result.push(ClientWithUid { uid, client });
+        match UserToken::create_from_tokens(&tokens) {
+            Ok((token, jar)) => {
+                match APIClient::new(token, jar, tokens) {
+                    Ok(client) => {
+                        result.push(ClientWithUid { uid, client });
+                    }
+                    Err(e) => {
+                        log::warn!("跳过 uid={}: 创建客户端失败: {}", uid, e);
+                    }
+                }
+            }
+            Err(e) => {
+                log::warn!("跳过 uid={}: Token 可能已过期: {}", uid, e);
+            }
+        }
     }
 
+    if result.is_empty() {
+        return Err(anyhow::anyhow!("没有找到有效的 token，请检查 token 文件中的 cookies 是否已过期"));
+    }
+
+    log::info!("成功加载 {} 个有效 token", result.len());
     Ok(result)
 }
 
