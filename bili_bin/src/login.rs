@@ -14,13 +14,6 @@ struct TokenEntry {
 
 type TokensMap = BTreeMap<String, TokenEntry>;
 
-/// 保存 token 到纯文本格式
-fn save_text_token(output: &str, cookies: &[String]) -> Result<()> {
-    let content = cookies.join("\n");
-    fs::write(output, content)?;
-    Ok(())
-}
-
 /// 保存 token 到 TOML 格式
 /// 如果文件已存在，则更新对应 uid 的条目；否则创建新文件
 fn save_toml_token(output: &str, uid: &str, cookies: &[String]) -> Result<()> {
@@ -157,14 +150,8 @@ async fn run_poll(login_url: LoginUrl, output: String) -> Result<()> {
                 let uid = &client.token.uid.to_string();
                 let cookies = &client.cookies;
 
-                // 根据输出文件扩展名选择保存格式
-                if output.ends_with(".toml") {
-                    save_toml_token(&output, uid, cookies)?;
-                    println!("Token 已保存到: {}", output);
-                } else {
-                    save_text_token(&output, cookies)?;
-                    println!("Cookies 已保存到: {}", output);
-                }
+                save_toml_token(&output, uid, cookies)?;
+                println!("Token 已保存到: {}", output);
 
                 // 登录成功后删除状态文件
                 let _ = fs::remove_file(STATE_FILE);

@@ -74,77 +74,57 @@ pub async fn run_refresh_token(token_file: String, uid: Option<&str>) -> Result<
     log::info!("刷新 token 文件: {}", token_file);
 
     let content = fs::read_to_string(&token_file)?;
-    let is_toml = content.trim().starts_with('[');
+    let mut map: TokensMap = toml::from_str(&content)
+        .map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
 
     let client = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(3))
         .timeout(std::time::Duration::from_secs(5))
         .build()?;
 
-    if is_toml {
-        // TOML 格式
-        let mut map: TokensMap = toml::from_str(&content)
-            .map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
-
-        if let Some(target_uid) = uid {
-            // 只刷新指定的 token
-            log::info!("正在刷新 uid={} 的 token...", target_uid);
-            if let Some(entry) = map.get_mut(target_uid) {
-                let (buvid3, buvid4) = fetch_fingerprint(&client).await?;
-                if buvid3.is_empty() && buvid4.is_empty() {
-                    log::warn!("未获取到 buvid3/buvid4");
-                    return Ok(());
-                }
-                log::info!("获取到 buvid3: {}", buvid3);
-                log::info!("获取到 buvid4: {}", buvid4);
-                entry.token = add_fingerprint_to_token(&entry.token, &buvid3, &buvid4);
-                let new_content = toml::to_string_pretty(&map)?;
-                fs::write(&token_file, new_content)?;
-                println!("Token 刷新成功! 已为 uid={} 添加 buvid3 和 buvid4", target_uid);
-            } else {
-                log::warn!("未找到 uid={} 的 token", target_uid);
-                return Err(anyhow::anyhow!("未找到 uid={} 的 token", target_uid));
+    if let Some(target_uid) = uid {
+        // 只刷新指定的 token
+        log::info!("正在刷新 uid={} 的 token...", target_uid);
+        if let Some(entry) = map.get_mut(target_uid) {
+            let (buvid3, buvid4) = fetch_fingerprint(&client).await?;
+            if buvid3.is_empty() && buvid4.is_empty() {
+                log::warn!("未获取到 buvid3/buvid4");
+                return Ok(());
             }
-        } else {
-            // 刷新所有 token - 每个 token 获取独立的 fingerprint
-            log::info!("正在刷新 {} 个 token...", map.len());
-            let keys: Vec<String> = map.keys().cloned().collect();
-            for (i, key) in keys.iter().enumerate() {
-                log::info!("[{}/{}] 正在刷新 uid={}...", i + 1, keys.len(), key);
-                match fetch_fingerprint(&client).await {
-                    Ok((buvid3, buvid4)) => {
-                        if buvid3.is_empty() && buvid4.is_empty() {
-                            log::warn!("uid={} 未获取到 buvid3/buvid4，跳过", key);
-                            continue;
-                        }
-                        if let Some(entry) = map.get_mut(key) {
-                            entry.token = add_fingerprint_to_token(&entry.token, &buvid3, &buvid4);
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!("uid={} 获取 fingerprint 失败: {}，跳过", key, e);
-                    }
-                }
-            }
+            log::info!("获取到 buvid3: {}", buvid3);
+            log::info!("获取到 buvid4: {}", buvid4);
+            entry.token = add_fingerprint_to_token(&entry.token, &buvid3, &buvid4);
             let new_content = toml::to_string_pretty(&map)?;
             fs::write(&token_file, new_content)?;
-            println!("Token 刷新成功! 已为 {} 个 token 添加 buvid3 和 buvid4", map.len());
+            println!("Token 刷新成功! 已为 uid={} 添加 buvid3 和 buvid4", target_uid);
+        } else {
+            log::warn!("未找到 uid={} 的 token", target_uid);
+            return Err(anyhow::anyhow!("未找到 uid={} 的 token", target_uid));
         }
     } else {
-        // 纯文本格式（uid 参数无效）
-        if uid.is_some() {
-            log::warn!("纯文本 token 文件不支持 uid 参数，忽略");
+        // 刷新所有 token - 每个 token 获取独立的 fingerprint
+        log::info!("正在刷新 {} 个 token...", map.len());
+        let keys: Vec<String> = map.keys().cloned().collect();
+        for (i, key) in keys.iter().enumerate() {
+            log::info!("[{}/{}] 正在刷新 uid={}...", i + 1, keys.len(), key);
+            match fetch_fingerprint(&client).await {
+                Ok((buvid3, buvid4)) => {
+                    if buvid3.is_empty() && buvid4.is_empty() {
+                        log::warn!("uid={} 未获取到 buvid3/buvid4，跳过", key);
+                        continue;
+                    }
+                    if let Some(entry) = map.get_mut(key) {
+                        entry.token = add_fingerprint_to_token(&entry.token, &buvid3, &buvid4);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("uid={} 获取 fingerprint 失败: {}，跳过", key, e);
+                }
+            }
         }
-        let (buvid3, buvid4) = fetch_fingerprint(&client).await?;
-        if buvid3.is_empty() && buvid4.is_empty() {
-            log::warn!("未获取到 buvid3/buvid4");
-            return Ok(());
-        }
-        log::info!("获取到 buvid3: {}", buvid3);
-        log::info!("获取到 buvid4: {}", buvid4);
-        let new_token = add_fingerprint_to_token(&content, &buvid3, &buvid4);
-        fs::write(&token_file, new_token)?;
-        println!("Token 刷新成功! 已添加 buvid3 和 buvid4");
+        let new_content = toml::to_string_pretty(&map)?;
+        fs::write(&token_file, new_content)?;
+        println!("Token 刷新成功! 已为 {} 个 token 添加 buvid3 和 buvid4", map.len());
     }
 
     Ok(())
