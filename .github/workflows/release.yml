@@ -22,11 +22,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: bili_bin
+            binary_name: bili_bin-linux
           - os: macos-latest
-            artifact_name: bili_bin
+            binary_name: bili_bin-macos
           - os: windows-latest
-            artifact_name: bili_bin.exe
+            binary_name: bili_bin.exe
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,11 +44,21 @@ jobs:
       - name: Build
         run: cargo build --release -p bili_bin
 
+      - name: Rename binary (non-Windows)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: mv target/release/bili_bin target/release/${{ matrix.binary_name }}
+
+      - name: Rename binary (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: mv target/release/bili_bin.exe target/release/${{ matrix.binary_name }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-binary
-          path: target/release/${{ matrix.artifact_name }}
+          path: target/release/${{ matrix.binary_name }}
 
   release:
     needs: build
@@ -84,8 +94,8 @@ jobs:
 
             #### 预编译二进制
             从下方 Assets 下载对应平台的二进制文件：
-            - **Linux**: `bili_bin`
-            - **macOS**: `bili_bin`
+            - **Linux**: `bili_bin-linux`
+            - **macOS**: `bili_bin-macos`
             - **Windows**: `bili_bin.exe`
 
             #### 使用
@@ -105,7 +115,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          files: artifacts/ubuntu-latest-binary/bili_bin
+          files: artifacts/ubuntu-latest-binary/bili_bin-linux
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -113,7 +123,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          files: artifacts/macos-latest-binary/bili_bin
+          files: artifacts/macos-latest-binary/bili_bin-macos
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
