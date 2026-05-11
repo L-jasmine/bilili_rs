@@ -18,10 +18,13 @@ fn format_room_info(info: &RoomPlayInfo) -> String {
 }
 
 /// 获取直播间信息
-pub async fn run_room_info(room_id: u64, token_file: String) -> Result<()> {
-    log::info!("正在获取直播间 {} 信息...", room_id);
+pub async fn run_room_info(room_id: u64, token_file: String, uid: Option<&str>) -> Result<()> {
+    // 必须指定 uid
+    let uid = uid.ok_or_else(|| anyhow::anyhow!("此命令必须指定 --uid 参数"))?;
 
-    let client = load_client(&token_file)?;
+    log::info!("正在获取直播间 {} 信息 (uid: {})...", room_id, uid);
+
+    let client = load_client(&token_file, Some(uid))?;
 
     match client.get_room_play_info(room_id).await {
         Ok(result) => {

@@ -28,10 +28,13 @@ fn format_user_info(info: &UserInfo) -> String {
 }
 
 /// 获取用户信息
-pub async fn run_user_info(mid: u64, token_file: String) -> Result<()> {
-    log::info!("正在获取用户 {} 信息...", mid);
+pub async fn run_user_info(mid: u64, token_file: String, uid: Option<&str>) -> Result<()> {
+    // 必须指定 uid
+    let uid = uid.ok_or_else(|| anyhow::anyhow!("此命令必须指定 --uid 参数"))?;
 
-    let client = load_client(&token_file)?;
+    log::info!("正在获取用户 {} 信息 (uid: {})...", mid, uid);
+
+    let client = load_client(&token_file, Some(uid))?;
 
     match client.get_user_info(mid).await {
         Ok(result) => {

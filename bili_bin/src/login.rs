@@ -1,8 +1,78 @@
 use anyhow::Result;
 use bilili_rs::api::LoginUrl;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs;
 
 const STATE_FILE: &str = ".bili_login_state";
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TokenEntry {
+    token: String,
+    deadline: String,
+}
+
+type TokensMap = BTreeMap<String, TokenEntry>;
+
+/// 保存 token 到纯文本格式
+fn save_text_token(output: &str, cookies: &[String]) -> Result<()> {
+    let content = cookies.join("\n");
+    fs::write(output, content)?;
+    Ok(())
+}
+
+/// 保存 token 到 TOML 格式
+/// 如果文件已存在，则更新对应 uid 的条目；否则创建新文件
+fn save_toml_token(output: &str, uid: &str, cookies: &[String]) -> Result<()> {
+    use time::format_description::well_known::Iso8601;
+
+    // 从 SESSDATA 中提取过期时间戳
+    let sessdata_expire = cookies
+        .iter()
+        .find(|c| c.starts_with("SESSDATA="))
+        .and_then(|c| c.split(',').nth(1).and_then(|s| s.parse::<i64>().ok()));
+
+    let deadline = if let Some(timestamp) = sessdata_expire {
+        // 转换为本地时间的 ISO 8601 格式
+        let utc = time::OffsetDateTime::from_unix_timestamp(timestamp)?;
+        // 转换为系统本地时区
+        let local = utc.to_offset(time::UtcOffset::current_local_offset()?);
+        local.format(&Iso8601::DEFAULT)?
+    } else {
+        // 默认 30 天后（本地时间）
+        let now_local =
+            time::OffsetDateTime::now_utc().to_offset(time::UtcOffset::current_local_offset()?);
+        let dt = now_local
+            .checked_add(time::Duration::days(30))
+            .ok_or(anyhow::anyhow!("计算过期时间失败"))?;
+        dt.format(&Iso8601::DEFAULT)?
+    };
+
+    let token_content = cookies.join("\n");
+    let entry = TokenEntry {
+        token: token_content,
+        deadline,
+    };
+
+    // 检查文件是否存在
+    if std::path::Path::new(output).exists() {
+        // 读取现有 TOML，更新条目
+        let content = fs::read_to_string(output)?;
+        let mut map: TokensMap = toml::from_str(&content)
+            .map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
+        map.insert(uid.to_string(), entry);
+        let new_content = toml::to_string_pretty(&map)?;
+        fs::write(output, new_content)?;
+    } else {
+        // 创建新文件
+        let mut map = TokensMap::new();
+        map.insert(uid.to_string(), entry);
+        let content = toml::to_string_pretty(&map)?;
+        fs::write(output, content)?;
+    }
+
+    Ok(())
+}
 
 /// 在终端显示二维码
 pub fn display_qrcode(url: &str) -> Result<()> {
@@ -84,9 +154,17 @@ async fn run_poll(login_url: LoginUrl, output: String) -> Result<()> {
                 println!("\n登录成功!");
                 println!("用户ID: {}", client.token.uid);
 
-                let cookies = client.cookies.join("\n");
-                fs::write(&output, cookies)?;
-                println!("Cookies 已保存到: {}", output);
+                let uid = &client.token.uid.to_string();
+                let cookies = &client.cookies;
+
+                // 根据输出文件扩展名选择保存格式
+                if output.ends_with(".toml") {
+                    save_toml_token(&output, uid, cookies)?;
+                    println!("Token 已保存到: {}", output);
+                } else {
+                    save_text_token(&output, cookies)?;
+                    println!("Cookies 已保存到: {}", output);
+                }
 
                 // 登录成功后删除状态文件
                 let _ = fs::remove_file(STATE_FILE);

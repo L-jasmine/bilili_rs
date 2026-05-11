@@ -15,6 +15,9 @@ use clap::{Parser, Subcommand};
 #[command(name = "bili")]
 #[command(about = "Bilibili 命令行工具", long_about = None)]
 struct Cli {
+    /// 指定使用的用户 UID（用于 TOML 格式的 token 文件）
+    #[arg(short, long, global = true)]
+    uid: Option<String>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -104,36 +107,38 @@ async fn main() {
 
     let cli = Cli::parse();
 
+    let uid = cli.uid.as_deref();
+
     let r = match cli.command {
         Commands::Login { url_only, output } => login::run_login(url_only, output).await,
-        Commands::RefreshToken { token_file } => refresh::run_refresh_token(token_file).await,
+        Commands::RefreshToken { token_file } => refresh::run_refresh_token(token_file, uid).await,
         Commands::Barrage {
             room_id,
             message,
             token_file,
-        } => barrage::run_barrage(room_id, message, token_file).await,
+        } => barrage::run_barrage(room_id, message, token_file, uid).await,
         Commands::Share {
             room_id,
             token_file,
-        } => share::run_share(room_id, token_file).await,
+        } => share::run_share(room_id, token_file, uid).await,
         Commands::Like {
             room_id,
             anchor_id,
             click_count,
             token_file,
-        } => like::run_like(room_id, anchor_id, click_count, token_file).await,
+        } => like::run_like(room_id, anchor_id, click_count, token_file, uid).await,
         Commands::Gift {
             room_id,
             ruid,
             gift_name,
             gift_num,
             token_file,
-        } => gift::run_gift(room_id, ruid, gift_name, gift_num, token_file).await,
+        } => gift::run_gift(room_id, ruid, gift_name, gift_num, token_file, uid).await,
         Commands::Room {
             room_id,
             token_file,
-        } => room::run_room_info(room_id, token_file).await,
-        Commands::User { mid, token_file } => user::run_user_info(mid, token_file).await,
+        } => room::run_room_info(room_id, token_file, uid).await,
+        Commands::User { mid, token_file } => user::run_user_info(mid, token_file, uid).await,
     };
 
     if let Err(e) = r {
