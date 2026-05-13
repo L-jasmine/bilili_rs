@@ -68,12 +68,26 @@ bili_bin barrage <房间号> "你好"
 |------|------|
 | `login -o <file>` | 二维码登录 |
 | `refresh-token` | 刷新设备指纹 |
+| `connect <房间号>` | 连接直播间接收实时消息 |
 | `barrage <房间号> <内容>` | 发送弹幕 |
 | `gift <房间号> <主播UID> <礼物> <数量>` | 送礼物 |
 | `like <房间号> <主播ID> <次数>` | 点赞 |
 | `share <房间号>` | 分享直播间 |
-| `room-info <房间号>` | 获取房间信息 |
-| `user-info <用户UID>` | 获取用户信息 |
+| `room <房间号>` | 获取房间信息 |
+| `user <用户UID>` | 获取用户信息 |
+
+### 连接直播间
+
+```bash
+# 连接并接收实时消息
+bili_bin connect <房间号> --uid 123456
+
+# 所有账号连接，只打印一个的消息
+bili_bin connect <房间号>
+
+# JSON 模式，配合 jq 过滤
+bili_bin connect <房间号> --json | jq 'select(.cmd == "DANMU_MSG")'
+```
 
 ## Token 文件格式
 

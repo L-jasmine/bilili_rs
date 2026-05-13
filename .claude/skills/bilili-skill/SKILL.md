@@ -157,6 +157,40 @@ bili_bin gift 123456 789 "人气票" 1
 bili_bin gift 123456 789 "贴贴" 5
 ```
 
+### 连接直播间
+
+连接直播间 WebSocket，实时接收弹幕、礼物、进入等消息：
+
+```bash
+# 指定 uid 连接
+bili_bin connect <房间号> --uid 123456
+
+# 不指定 uid，所有账号连接但只打印一个的消息流
+bili_bin connect <房间号>
+```
+
+输出格式：
+```
+[弹幕] 用户名: 弹幕内容
+[礼物] 用户名 送出 礼物名 x数量
+[进入] 用户名 进入直播间
+[上舰] 用户名 购买了 礼物名 x数量
+[直播] 开播了 / 下播了
+```
+
+**JSON 模式**：使用 `--json` 输出原始 JSON，便于 pipe 给 `jq` 过滤：
+
+```bash
+# 只看弹幕
+bili_bin connect <房间号> --json | jq 'select(.cmd == "DANMU_MSG")'
+
+# 只看金额大于1000的礼物
+bili_bin connect <房间号> --json | jq 'select(.cmd == "SEND_GIFT" and .data.total_coin > 1000)'
+
+# 只看舰长等级 >= 2 的弹幕
+bili_bin connect <房间号> --json | jq 'select(.cmd == "DANMU_MSG" and .info.guard_level >= 2)'
+```
+
 ### 获取房间信息
 
 **必须指定 `--uid`**：

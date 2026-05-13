@@ -54,7 +54,8 @@ Key API operations:
 - `get_room_play_info()` - Get live room status
 
 ### `live_ws` - WebSocket Live Chat
-- **`connect()`**: Entry point - creates `MsgStream` for receiving live messages
+- **`connect()`**: Entry point - creates `MsgStream` for receiving live messages, with configurable max_retry for auto-reconnect
+- **`notification_msg`**: Re-exported module containing `NotificationMsg` enum for message type matching
 - **`open_client()`**: Core connection loop with auto-reconnect (exponential backoff: 10s → 300s)
 - **`connect_keep()`**: Sends heartbeat every 30 seconds
 - **`loop_handle_msg()`**: Receives and decodes binary WebSocket protocol messages
