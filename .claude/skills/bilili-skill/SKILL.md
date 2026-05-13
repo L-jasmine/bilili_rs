@@ -1,6 +1,6 @@
 ---
 name: bilili-skill
-description: Bilibili 直播间 CLI 工具。使用此技能执行 Bilibili 直播间操作：登录、刷新 token、发送弹幕、送礼物、点赞、分享、获取房间信息、获取用户信息。
+description: Bilibili 直播间 CLI 工具。使用此技能执行 Bilibili 直播间操作：登录、刷新 token、刷新用户名、连接直播间、发送弹幕、送礼物、点赞、分享、获取房间信息、获取用户信息、安装 skill。
 ---
 
 ## bili_bin - Bilibili 直播间命令行工具
@@ -47,12 +47,15 @@ bili_jct=...; Path=/; Domain=bilibili.com; Expires=...
 DedeUserID=uid1; Path=/; Domain=bilibili.com; Expires=...
 ...
 """
+username = "用户昵称"
 deadline = "2026-07-09T10:41:07.088606900+08:00"
 
 [uid2]
 token = """..."""
 deadline = "..."
 ```
+
+`username` 为可选字段，登录时自动获取，也可通过 `refresh-username` 命令手动刷新。
 
 ### 登录
 
@@ -71,7 +74,7 @@ bili_bin login --url-only -o tokens.toml
 1. 首次运行生成二维码，保存到 `qrcode.svg` 和 `.bili_login_state`
 2. 让用户使用哔哩哔哩手机 App 扫描二维码
 3. 用户回答已经扫码后，再次执行 `login` 命令，程序会检测到状态文件并轮询登录状态
-4. 登录成功后保存 cookies 到指定的 TOML 文件，并自动删除 `.bili_login_state`
+4. 登录成功后保存 cookies 到指定的 TOML 文件，自动获取用户名并保存，最后删除 `.bili_login_state`
 
 **注意**：登录成功后，token 会自动包含设备指纹 cookies (buvid3/buvid4)，这些是点赞等操作所必需的。
 
@@ -94,6 +97,30 @@ bili_bin refresh-token
 **使用场景**：
 - 如果点赞功能返回 -352 错误（风控校验失败），通常是缺少设备指纹 cookies
 - 使用老版本登录的 token 文件可以用此命令更新
+
+### 刷新用户名
+
+查询 B 站 API 获取每个 uid 的用户名并保存到 token 文件：
+
+```bash
+# 刷新所有 uid 的用户名（每个间隔 500ms）
+bili_bin refresh-username -t tokens.toml
+
+# 只刷新指定 uid
+bili_bin refresh-username -t tokens.toml --uid 123456
+```
+
+### 安装 Skill
+
+将 Claude Code skill 安装到项目中：
+
+```bash
+# 安装到当前目录的 .claude/skills/（默认）
+bili_bin install-skill --local
+
+# 安装到全局 ~/.claude/skills/（~/.claude 必须存在）
+bili_bin install-skill --global
+```
 
 ### 批量操作与 --uid 参数
 
