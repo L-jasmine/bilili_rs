@@ -91,6 +91,9 @@ enum Commands {
         /// Token 文件路径
         #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
         token_file: String,
+        /// 以 JSON 格式输出，便于 pipe 给 jq 过滤
+        #[arg(short, long)]
+        json: bool,
     },
     /// 获取直播间信息
     Room {
@@ -122,7 +125,8 @@ async fn main() {
         Commands::Connect {
             room_id,
             token_file,
-        } => connect::run_connect(room_id, token_file, uid).await,
+            json,
+        } => connect::run_connect(room_id, token_file, uid, json).await,
         Commands::Login { url_only, output } => login::run_login(url_only, output).await,
         Commands::RefreshToken { token_file } => refresh::run_refresh_token(token_file, uid).await,
         Commands::Barrage {
