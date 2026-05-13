@@ -1,5 +1,6 @@
 mod barrage;
 mod client;
+mod connect;
 mod gift;
 mod like;
 mod login;
@@ -83,6 +84,14 @@ enum Commands {
         #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
         token_file: String,
     },
+    /// 连接直播间并接收实时消息
+    Connect {
+        /// 直播间号
+        room_id: u64,
+        /// Token 文件路径
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        token_file: String,
+    },
     /// 获取直播间信息
     Room {
         /// 直播间号
@@ -110,6 +119,10 @@ async fn main() {
     let uid = cli.uid.as_deref();
 
     let r = match cli.command {
+        Commands::Connect {
+            room_id,
+            token_file,
+        } => connect::run_connect(room_id, token_file, uid).await,
         Commands::Login { url_only, output } => login::run_login(url_only, output).await,
         Commands::RefreshToken { token_file } => refresh::run_refresh_token(token_file, uid).await,
         Commands::Barrage {

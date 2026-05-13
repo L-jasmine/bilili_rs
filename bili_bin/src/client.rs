@@ -1,8 +1,8 @@
 use anyhow::Result;
 use bilili_rs::api::{APIClient, UserToken};
 use serde::Deserialize;
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 
 #[derive(Debug, Deserialize)]
 struct TokenEntry {
@@ -24,12 +24,13 @@ pub struct ClientWithUid {
 pub fn load_all_clients(token_file: &str) -> Result<Vec<ClientWithUid>> {
     let content = fs::read_to_string(token_file)?;
 
-    let map: TokensMap = toml::from_str(&content)
-        .map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
+    let map: TokensMap =
+        toml::from_str(&content).map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
 
     let mut result = Vec::new();
     for (uid, entry) in map {
-        let tokens: Vec<String> = entry.token
+        let tokens: Vec<String> = entry
+            .token
             .lines()
             .filter_map(|s| {
                 let s = s.trim();
@@ -42,16 +43,14 @@ pub fn load_all_clients(token_file: &str) -> Result<Vec<ClientWithUid>> {
             .collect();
 
         match UserToken::create_from_tokens(&tokens) {
-            Ok((token, jar)) => {
-                match APIClient::new(token, jar, tokens) {
-                    Ok(client) => {
-                        result.push(ClientWithUid { uid, client });
-                    }
-                    Err(e) => {
-                        log::warn!("跳过 uid={}: 创建客户端失败: {}", uid, e);
-                    }
+            Ok((token, jar)) => match APIClient::new(token, jar, tokens) {
+                Ok(client) => {
+                    result.push(ClientWithUid { uid, client });
                 }
-            }
+                Err(e) => {
+                    log::warn!("跳过 uid={}: 创建客户端失败: {}", uid, e);
+                }
+            },
             Err(e) => {
                 log::warn!("跳过 uid={}: Token 可能已过期: {}", uid, e);
             }
@@ -59,7 +58,9 @@ pub fn load_all_clients(token_file: &str) -> Result<Vec<ClientWithUid>> {
     }
 
     if result.is_empty() {
-        return Err(anyhow::anyhow!("没有找到有效的 token，请检查 token 文件中的 cookies 是否已过期"));
+        return Err(anyhow::anyhow!(
+            "没有找到有效的 token，请检查 token 文件中的 cookies 是否已过期"
+        ));
     }
 
     log::info!("成功加载 {} 个有效 token", result.len());
@@ -71,8 +72,8 @@ pub fn load_all_clients(token_file: &str) -> Result<Vec<ClientWithUid>> {
 pub fn load_client(token_file: &str, uid: Option<&str>) -> Result<APIClient> {
     let content = fs::read_to_string(token_file)?;
 
-    let map: TokensMap = toml::from_str(&content)
-        .map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
+    let map: TokensMap =
+        toml::from_str(&content).map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
 
     let selected_uid = if let Some(uid) = uid {
         uid.to_string()
@@ -84,10 +85,12 @@ pub fn load_client(token_file: &str, uid: Option<&str>) -> Result<APIClient> {
             .clone()
     };
 
-    let entry = map.get(&selected_uid)
+    let entry = map
+        .get(&selected_uid)
         .ok_or_else(|| anyhow::anyhow!("未找到 uid={} 的 token", selected_uid))?;
 
-    let tokens: Vec<String> = entry.token
+    let tokens: Vec<String> = entry
+        .token
         .lines()
         .filter_map(|s| {
             let s = s.trim();
@@ -101,6 +104,5 @@ pub fn load_client(token_file: &str, uid: Option<&str>) -> Result<APIClient> {
 
     log::debug!("从 TOML 加载 uid={} 的 token", selected_uid);
     let (token, jar) = UserToken::create_from_tokens(&tokens)?;
-    APIClient::new(token, jar, tokens)
-        .map_err(|e| anyhow::anyhow!("创建 API 客户端失败: {}", e))
+    APIClient::new(token, jar, tokens).map_err(|e| anyhow::anyhow!("创建 API 客户端失败: {}", e))
 }

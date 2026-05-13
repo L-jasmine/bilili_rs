@@ -1,5 +1,5 @@
+use crate::client::{ClientWithUid, load_all_clients, load_client};
 use anyhow::Result;
-use crate::client::{load_all_clients, load_client, ClientWithUid};
 
 /// 给直播间点赞
 pub async fn run_like(
@@ -20,7 +20,9 @@ pub async fn run_like(
 
     log::info!(
         "正在给直播间 {} 点赞（点击次数: {}），共 {} 个账号...",
-        room_id, click_count, clients.len()
+        room_id,
+        click_count,
+        clients.len()
     );
 
     let mut success_count = 0;
@@ -37,7 +39,11 @@ pub async fn run_like(
                     println!("[uid={}] 点赞成功!", client_with_uid.uid);
                     success_count += 1;
                 } else {
-                    log::error!("[uid={}] 点赞失败: {:?}", client_with_uid.uid, result.message);
+                    log::error!(
+                        "[uid={}] 点赞失败: {:?}",
+                        client_with_uid.uid,
+                        result.message
+                    );
                     fail_count += 1;
                 }
             }

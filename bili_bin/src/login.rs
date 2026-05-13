@@ -51,8 +51,8 @@ fn save_toml_token(output: &str, uid: &str, cookies: &[String]) -> Result<()> {
     if std::path::Path::new(output).exists() {
         // 读取现有 TOML，更新条目
         let content = fs::read_to_string(output)?;
-        let mut map: TokensMap = toml::from_str(&content)
-            .map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
+        let mut map: TokensMap =
+            toml::from_str(&content).map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
         map.insert(uid.to_string(), entry);
         let new_content = toml::to_string_pretty(&map)?;
         fs::write(output, new_content)?;

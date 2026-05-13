@@ -1,6 +1,6 @@
+use crate::client::load_client;
 use anyhow::Result;
 use bilili_rs::api::UserInfo;
-use crate::client::load_client;
 
 /// 格式化用户信息
 fn format_user_info(info: &UserInfo) -> String {
@@ -14,12 +14,11 @@ fn format_user_info(info: &UserInfo) -> String {
         None => "无直播间",
     };
 
-    let room_info = info.live_room.as_ref().map(|room| {
-        format!(
-            "\n  直播间号: {}\n  直播标题: {}",
-            room.roomid, room.title
-        )
-    }).unwrap_or_default();
+    let room_info = info
+        .live_room
+        .as_ref()
+        .map(|room| format!("\n  直播间号: {}\n  直播标题: {}", room.roomid, room.title))
+        .unwrap_or_default();
 
     format!(
         "用户信息:\n  UID: {}\n  昵称: {}\n  性别: {}\n  直播状态: {}{}",

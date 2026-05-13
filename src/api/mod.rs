@@ -352,7 +352,10 @@ impl LoginUrl {
             let _resp = client
                 .get("https://live.bilibili.com/")
                 .header(USER_AGENT, UA)
-                .header(ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+                .header(
+                    ACCEPT,
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                )
                 .header(REFERER, "https://www.bilibili.com/")
                 .send()
                 .await?;
@@ -374,10 +377,22 @@ impl LoginUrl {
                     // 手动添加到 jar（带 Domain 属性）
                     let domain_url = BILI_URL.parse().unwrap();
                     if !b_3.is_empty() {
-                        jar.add_cookie_str(&format!("buvid3={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647", b_3), &domain_url);
+                        jar.add_cookie_str(
+                            &format!(
+                                "buvid3={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647",
+                                b_3
+                            ),
+                            &domain_url,
+                        );
                     }
                     if !b_4.is_empty() {
-                        jar.add_cookie_str(&format!("buvid4={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647", b_4), &domain_url);
+                        jar.add_cookie_str(
+                            &format!(
+                                "buvid4={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647",
+                                b_4
+                            ),
+                            &domain_url,
+                        );
                     }
                 }
             }
@@ -390,9 +405,13 @@ impl LoginUrl {
             log::info!("========== 所有 Cookies ==========");
             for c in &all_cookies {
                 let name = c.split('=').next().unwrap_or("");
-                if name.contains("buvid") || name.contains("fingerprint") || name.contains("_uuid") {
+                if name.contains("buvid") || name.contains("fingerprint") || name.contains("_uuid")
+                {
                     log::info!("【设备指纹】{}", c);
-                } else if name.contains("DedeUserID") || name.contains("SESSDATA") || name.contains("bili_jct") {
+                } else if name.contains("DedeUserID")
+                    || name.contains("SESSDATA")
+                    || name.contains("bili_jct")
+                {
                     log::info!("【认证信息】{}", c);
                 } else {
                     log::info!("{}", c);
@@ -435,7 +454,10 @@ fn extract_all_cookies(jar: Arc<Jar>) -> Vec<String> {
                             if !seen_names.contains(name) {
                                 seen_names.insert(name.to_string());
                                 // 添加完整的 Set-Cookie 格式
-                                cookies.push(format!("{}; Path=/; Domain={}; Max-Age=2147483647", c, cookie_domain));
+                                cookies.push(format!(
+                                    "{}; Path=/; Domain={}; Max-Age=2147483647",
+                                    c, cookie_domain
+                                ));
                             }
                         }
                     }
@@ -533,7 +555,10 @@ impl APIClient {
             .post(url)
             .header(USER_AGENT, UA)
             .header(reqwest::header::CONTENT_LENGTH, "0")
-            .header(reqwest::header::REFERER, format!("https://live.bilibili.com/{room_id}"))
+            .header(
+                reqwest::header::REFERER,
+                format!("https://live.bilibili.com/{room_id}"),
+            )
             .header("Origin", "https://live.bilibili.com")
             .header("Accept", "*/*")
             .header("sec-ch-ua", r#""Chromium";v="146", "Not-A.Brand";v="24""#)

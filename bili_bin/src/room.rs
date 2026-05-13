@@ -1,6 +1,6 @@
+use crate::client::load_client;
 use anyhow::Result;
 use bilili_rs::api::RoomPlayInfo;
-use crate::client::load_client;
 
 /// 格式化直播间信息
 fn format_room_info(info: &RoomPlayInfo) -> String {
