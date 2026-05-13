@@ -39,13 +39,13 @@ enum Commands {
     /// 刷新 token 文件（补充 buvid3/buvid4 等设备指纹）
     RefreshToken {
         /// Token 文件路径
-        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token.toml")]
         token_file: String,
     },
     /// 刷新 token 文件中的 username
     RefreshUsername {
         /// Token 文件路径
-        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token.toml")]
         token_file: String,
         /// 只刷新指定 uid（不指定则刷新全部）
         #[arg(short, long)]
@@ -58,7 +58,7 @@ enum Commands {
         /// 弹幕内容
         message: String,
         /// Token 文件路径
-        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token.toml")]
         token_file: String,
     },
     /// 分享直播间
@@ -66,7 +66,7 @@ enum Commands {
         /// 直播间号
         room_id: String,
         /// Token 文件路径
-        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token.toml")]
         token_file: String,
     },
     /// 给直播间点赞
@@ -78,7 +78,7 @@ enum Commands {
         /// 点击次数
         click_count: u64,
         /// Token 文件路径
-        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token.toml")]
         token_file: String,
     },
     /// 送礼物
@@ -92,7 +92,7 @@ enum Commands {
         /// 礼物数量
         gift_num: u64,
         /// Token 文件路径
-        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token.toml")]
         token_file: String,
     },
     /// 安装 Claude Code skill
@@ -109,7 +109,7 @@ enum Commands {
         /// 直播间号
         room_id: u64,
         /// Token 文件路径
-        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token.toml")]
         token_file: String,
         /// 以 JSON 格式输出，便于 pipe 给 jq 过滤
         #[arg(short, long)]
@@ -120,7 +120,7 @@ enum Commands {
         /// 直播间号
         room_id: u64,
         /// Token 文件路径
-        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token.toml")]
         token_file: String,
     },
     /// 获取用户信息
@@ -128,7 +128,7 @@ enum Commands {
         /// 用户 UID (mid)
         mid: u64,
         /// Token 文件路径
-        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token.toml")]
         token_file: String,
     },
 }

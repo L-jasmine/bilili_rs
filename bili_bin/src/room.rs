@@ -1,4 +1,4 @@
-use crate::client::load_client;
+use crate::client::{load_all_clients, load_client};
 use anyhow::Result;
 use bilili_rs::api::RoomPlayInfo;
 
@@ -19,31 +19,37 @@ fn format_room_info(info: &RoomPlayInfo) -> String {
 
 /// 获取直播间信息
 pub async fn run_room_info(room_id: u64, token_file: String, uid: Option<&str>) -> Result<()> {
-    // 必须指定 uid
-    let uid = uid.ok_or_else(|| anyhow::anyhow!("此命令必须指定 --uid 参数"))?;
-
-    log::info!("正在获取直播间 {} 信息 (uid: {})...", room_id, uid);
-
-    let client = load_client(&token_file, Some(uid))?;
-
-    match client.get_room_play_info(room_id).await {
-        Ok(result) => {
-            if result.code == 0 {
-                if let Some(info) = result.data {
-                    println!("{}", format_room_info(&info));
-                } else {
-                    return Err(anyhow::anyhow!("未获取到直播间信息"));
+    if let Some(uid) = uid {
+        log::info!("正在获取直播间 {} 信息 (uid: {})...", room_id, uid);
+        let client = load_client(&token_file, Some(uid))?;
+        fetch_and_print(&client, room_id).await
+    } else {
+        let clients = load_all_clients(&token_file)?;
+        let mut last_err = None;
+        for c in &clients {
+            log::info!("正在获取直播间 {} 信息 (uid: {})...", room_id, c.uid);
+            match fetch_and_print(&c.client, room_id).await {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    log::warn!("uid={} 获取失败: {}", c.uid, e);
+                    last_err = Some(e);
                 }
-            } else {
-                log::error!("获取失败: {:?}", result.message);
-                return Err(anyhow::anyhow!("获取失败: {:?}", result.message));
             }
         }
-        Err(e) => {
-            log::error!("获取出错: {}", e);
-            return Err(anyhow::anyhow!("获取出错: {}", e));
-        }
+        Err(last_err.unwrap_or_else(|| anyhow::anyhow!("没有可用的 token")))
     }
+}
 
-    Ok(())
+async fn fetch_and_print(client: &bilili_rs::api::APIClient, room_id: u64) -> Result<()> {
+    let result = client.get_room_play_info(room_id).await?;
+    if result.code == 0 {
+        if let Some(info) = result.data {
+            println!("{}", format_room_info(&info));
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("未获取到直播间信息"))
+        }
+    } else {
+        Err(anyhow::anyhow!("获取失败: {:?}", result.message))
+    }
 }
