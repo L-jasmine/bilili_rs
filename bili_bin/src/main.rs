@@ -6,6 +6,7 @@ mod install_skill;
 mod like;
 mod login;
 mod refresh;
+mod refresh_username;
 mod room;
 mod share;
 mod user;
@@ -40,6 +41,15 @@ enum Commands {
         /// Token 文件路径
         #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
         token_file: String,
+    },
+    /// 刷新 token 文件中的 username
+    RefreshUsername {
+        /// Token 文件路径
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        token_file: String,
+        /// 只刷新指定 uid（不指定则刷新全部）
+        #[arg(short, long)]
+        uid: Option<String>,
     },
     /// 发送弹幕
     Barrage {
@@ -140,6 +150,9 @@ async fn main() {
         } => connect::run_connect(room_id, token_file, uid, json).await,
         Commands::Login { url_only, output } => login::run_login(url_only, output).await,
         Commands::RefreshToken { token_file } => refresh::run_refresh_token(token_file, uid).await,
+        Commands::RefreshUsername { token_file, uid } => {
+            refresh_username::run_refresh_username(token_file, uid.as_deref()).await
+        }
         Commands::Barrage {
             room_id,
             message,

@@ -1,17 +1,20 @@
 use anyhow::Result;
 use bilili_rs::api::{APIClient, UserToken};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 
-#[derive(Debug, Deserialize)]
-struct TokenEntry {
-    token: String,
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TokenEntry {
+    pub token: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
     #[allow(dead_code)]
-    deadline: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deadline: Option<String>,
 }
 
-type TokensMap = HashMap<String, TokenEntry>;
+pub type TokensMap = HashMap<String, TokenEntry>;
 
 /// 带有 uid 标识的客户端
 pub struct ClientWithUid {
