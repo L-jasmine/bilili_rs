@@ -1,6 +1,6 @@
+use crate::client::{ClientWithUid, load_all_clients, load_client};
 use anyhow::Result;
 use bilili_rs::api::Gift;
-use crate::client::{load_all_clients, load_client, ClientWithUid};
 
 /// 礼物名称到 Gift 的映射
 fn parse_gift(name: &str) -> Result<Gift> {
@@ -38,7 +38,10 @@ pub async fn run_gift(
 
     log::info!(
         "正在向直播间 {} 送礼物（{} 个 {}），共 {} 个账号...",
-        room_id, gift_num, gift_name, clients.len()
+        room_id,
+        gift_num,
+        gift_name,
+        clients.len()
     );
 
     let mut success_count = 0;
@@ -58,7 +61,11 @@ pub async fn run_gift(
                     );
                     success_count += 1;
                 } else {
-                    log::error!("[uid={}] 送礼物失败: {:?}", client_with_uid.uid, result.message);
+                    log::error!(
+                        "[uid={}] 送礼物失败: {:?}",
+                        client_with_uid.uid,
+                        result.message
+                    );
                     fail_count += 1;
                 }
             }

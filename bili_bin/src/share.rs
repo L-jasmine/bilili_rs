@@ -1,5 +1,5 @@
+use crate::client::{ClientWithUid, load_all_clients, load_client};
 use anyhow::Result;
-use crate::client::{load_all_clients, load_client, ClientWithUid};
 
 /// 分享直播间
 pub async fn run_share(room_id: String, token_file: String, uid: Option<&str>) -> Result<()> {
@@ -24,7 +24,11 @@ pub async fn run_share(room_id: String, token_file: String, uid: Option<&str>) -
                     println!("[uid={}] 分享成功!", client_with_uid.uid);
                     success_count += 1;
                 } else {
-                    log::error!("[uid={}] 分享失败: {:?}", client_with_uid.uid, result.message);
+                    log::error!(
+                        "[uid={}] 分享失败: {:?}",
+                        client_with_uid.uid,
+                        result.message
+                    );
                     fail_count += 1;
                 }
             }

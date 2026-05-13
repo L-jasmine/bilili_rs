@@ -26,13 +26,19 @@ async fn fetch_fingerprint(client: &reqwest::Client) -> Result<(String, String)>
 
     match finger_json.get("data") {
         Some(data) => {
-            let b_3 = data.get("b_3").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let b_4 = data.get("b_4").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let b_3 = data
+                .get("b_3")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let b_4 = data
+                .get("b_4")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             Ok((b_3, b_4))
         }
-        None => {
-            Err(anyhow::anyhow!("fingerprint API 返回格式异常"))
-        }
+        None => Err(anyhow::anyhow!("fingerprint API 返回格式异常")),
     }
 }
 
@@ -57,13 +63,19 @@ fn add_fingerprint_to_token(token: &str, buvid3: &str, buvid4: &str) -> String {
     if !buvid3.is_empty() {
         lines.insert(
             0,
-            format!("buvid3={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647", buvid3),
+            format!(
+                "buvid3={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647",
+                buvid3
+            ),
         );
     }
     if !buvid4.is_empty() {
         lines.insert(
             1,
-            format!("buvid4={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647", buvid4),
+            format!(
+                "buvid4={}; Path=/; Domain=.bilibili.com; Max-Age=2147483647",
+                buvid4
+            ),
         );
     }
 
@@ -74,8 +86,8 @@ pub async fn run_refresh_token(token_file: String, uid: Option<&str>) -> Result<
     log::info!("刷新 token 文件: {}", token_file);
 
     let content = fs::read_to_string(&token_file)?;
-    let mut map: TokensMap = toml::from_str(&content)
-        .map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
+    let mut map: TokensMap =
+        toml::from_str(&content).map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
 
     let client = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(3))
@@ -96,7 +108,10 @@ pub async fn run_refresh_token(token_file: String, uid: Option<&str>) -> Result<
             entry.token = add_fingerprint_to_token(&entry.token, &buvid3, &buvid4);
             let new_content = toml::to_string_pretty(&map)?;
             fs::write(&token_file, new_content)?;
-            println!("Token 刷新成功! 已为 uid={} 添加 buvid3 和 buvid4", target_uid);
+            println!(
+                "Token 刷新成功! 已为 uid={} 添加 buvid3 和 buvid4",
+                target_uid
+            );
         } else {
             log::warn!("未找到 uid={} 的 token", target_uid);
             return Err(anyhow::anyhow!("未找到 uid={} 的 token", target_uid));
@@ -124,7 +139,10 @@ pub async fn run_refresh_token(token_file: String, uid: Option<&str>) -> Result<
         }
         let new_content = toml::to_string_pretty(&map)?;
         fs::write(&token_file, new_content)?;
-        println!("Token 刷新成功! 已为 {} 个 token 添加 buvid3 和 buvid4", map.len());
+        println!(
+            "Token 刷新成功! 已为 {} 个 token 添加 buvid3 和 buvid4",
+            map.len()
+        );
     }
 
     Ok(())

@@ -1,9 +1,12 @@
 mod barrage;
 mod client;
+mod connect;
 mod gift;
+mod install_skill;
 mod like;
 mod login;
 mod refresh;
+mod refresh_username;
 mod room;
 mod share;
 mod user;
@@ -38,6 +41,15 @@ enum Commands {
         /// Token 文件路径
         #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
         token_file: String,
+    },
+    /// 刷新 token 文件中的 username
+    RefreshUsername {
+        /// Token 文件路径
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        token_file: String,
+        /// 只刷新指定 uid（不指定则刷新全部）
+        #[arg(short, long)]
+        uid: Option<String>,
     },
     /// 发送弹幕
     Barrage {
@@ -83,6 +95,26 @@ enum Commands {
         #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
         token_file: String,
     },
+    /// 安装 Claude Code skill
+    InstallSkill {
+        /// 安装到用户全局目录 (~/.claude/skills/)
+        #[arg(short, long)]
+        global: bool,
+        /// 安装到当前目录 (.claude/skills/)
+        #[arg(short, long)]
+        local: bool,
+    },
+    /// 连接直播间并接收实时消息
+    Connect {
+        /// 直播间号
+        room_id: u64,
+        /// Token 文件路径
+        #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
+        token_file: String,
+        /// 以 JSON 格式输出，便于 pipe 给 jq 过滤
+        #[arg(short, long)]
+        json: bool,
+    },
     /// 获取直播间信息
     Room {
         /// 直播间号
@@ -110,8 +142,17 @@ async fn main() {
     let uid = cli.uid.as_deref();
 
     let r = match cli.command {
+        Commands::InstallSkill { global, local } => install_skill::run_install_skill(global, local),
+        Commands::Connect {
+            room_id,
+            token_file,
+            json,
+        } => connect::run_connect(room_id, token_file, uid, json).await,
         Commands::Login { url_only, output } => login::run_login(url_only, output).await,
         Commands::RefreshToken { token_file } => refresh::run_refresh_token(token_file, uid).await,
+        Commands::RefreshUsername { token_file, uid } => {
+            refresh_username::run_refresh_username(token_file, uid.as_deref()).await
+        }
         Commands::Barrage {
             room_id,
             message,

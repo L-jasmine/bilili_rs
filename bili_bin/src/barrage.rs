@@ -1,5 +1,5 @@
+use crate::client::{ClientWithUid, load_all_clients, load_client};
 use anyhow::Result;
-use crate::client::{load_all_clients, load_client, ClientWithUid};
 
 /// 发送弹幕
 pub async fn run_barrage(
@@ -19,7 +19,11 @@ pub async fn run_barrage(
         load_all_clients(&token_file)?
     };
 
-    log::info!("正在发送弹幕到直播间 {}，共 {} 个账号...", room_id, clients.len());
+    log::info!(
+        "正在发送弹幕到直播间 {}，共 {} 个账号...",
+        room_id,
+        clients.len()
+    );
 
     let mut success_count = 0;
     let mut fail_count = 0;
@@ -35,7 +39,11 @@ pub async fn run_barrage(
                     println!("[uid={}] 弹幕发送成功!", client_with_uid.uid);
                     success_count += 1;
                 } else {
-                    log::error!("[uid={}] 发送失败: {:?}", client_with_uid.uid, result.message);
+                    log::error!(
+                        "[uid={}] 发送失败: {:?}",
+                        client_with_uid.uid,
+                        result.message
+                    );
                     fail_count += 1;
                 }
             }

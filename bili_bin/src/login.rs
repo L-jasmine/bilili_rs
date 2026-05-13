@@ -1,22 +1,22 @@
 use anyhow::Result;
 use bilili_rs::api::LoginUrl;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 
-const STATE_FILE: &str = ".bili_login_state";
+use crate::client::TokenEntry;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct TokenEntry {
-    token: String,
-    deadline: String,
-}
+const STATE_FILE: &str = ".bili_login_state";
 
 type TokensMap = BTreeMap<String, TokenEntry>;
 
 /// 保存 token 到 TOML 格式
 /// 如果文件已存在，则更新对应 uid 的条目；否则创建新文件
-fn save_toml_token(output: &str, uid: &str, cookies: &[String]) -> Result<()> {
+fn save_toml_token(
+    output: &str,
+    uid: &str,
+    cookies: &[String],
+    username: Option<String>,
+) -> Result<()> {
     use time::format_description::well_known::Iso8601;
 
     // 从 SESSDATA 中提取过期时间戳
@@ -44,15 +44,16 @@ fn save_toml_token(output: &str, uid: &str, cookies: &[String]) -> Result<()> {
     let token_content = cookies.join("\n");
     let entry = TokenEntry {
         token: token_content,
-        deadline,
+        username,
+        deadline: Some(deadline),
     };
 
     // 检查文件是否存在
     if std::path::Path::new(output).exists() {
         // 读取现有 TOML，更新条目
         let content = fs::read_to_string(output)?;
-        let mut map: TokensMap = toml::from_str(&content)
-            .map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
+        let mut map: TokensMap =
+            toml::from_str(&content).map_err(|e| anyhow::anyhow!("解析 TOML 失败: {}", e))?;
         map.insert(uid.to_string(), entry);
         let new_content = toml::to_string_pretty(&map)?;
         fs::write(output, new_content)?;
@@ -150,7 +151,21 @@ async fn run_poll(login_url: LoginUrl, output: String) -> Result<()> {
                 let uid = &client.token.uid.to_string();
                 let cookies = &client.cookies;
 
-                save_toml_token(&output, uid, cookies)?;
+                let username = match client
+                    .get_user_info(client.token.uid.parse().unwrap())
+                    .await
+                {
+                    Ok(r) if r.code == 0 => r.data.map(|info| {
+                        println!("用户名: {}", info.name);
+                        info.name
+                    }),
+                    _ => {
+                        log::warn!("获取用户名失败");
+                        None
+                    }
+                };
+
+                save_toml_token(&output, uid, cookies, username)?;
                 println!("Token 已保存到: {}", output);
 
                 // 登录成功后删除状态文件

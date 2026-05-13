@@ -3,6 +3,7 @@ pub mod message;
 use crate::api::{APIClient, APIResult, LiveHost};
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
+pub use message::notification_msg;
 pub use message::notification_msg::NotificationMsg;
 pub use message::{ClientLiveMessage, ServerLiveMessage, WsLogin};
 use std::collections::LinkedList;
