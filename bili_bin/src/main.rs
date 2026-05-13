@@ -2,6 +2,7 @@ mod barrage;
 mod client;
 mod connect;
 mod gift;
+mod install_skill;
 mod like;
 mod login;
 mod refresh;
@@ -84,6 +85,15 @@ enum Commands {
         #[arg(short, long, env = "BILI_TOKEN_FILE", default_value = "token")]
         token_file: String,
     },
+    /// 安装 Claude Code skill
+    InstallSkill {
+        /// 安装到用户全局目录 (~/.claude/skills/)
+        #[arg(short, long)]
+        global: bool,
+        /// 安装到当前目录 (.claude/skills/)
+        #[arg(short, long)]
+        local: bool,
+    },
     /// 连接直播间并接收实时消息
     Connect {
         /// 直播间号
@@ -122,6 +132,7 @@ async fn main() {
     let uid = cli.uid.as_deref();
 
     let r = match cli.command {
+        Commands::InstallSkill { global, local } => install_skill::run_install_skill(global, local),
         Commands::Connect {
             room_id,
             token_file,
