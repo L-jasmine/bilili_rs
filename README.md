@@ -127,7 +127,7 @@ bili_bin like 8765806 531251 10
 
 ## 通用参数
 
-所有命令都支持 `--token-file` / `-t` 参数指定 token 文件，默认为 `token`：
+所有命令都支持 `--token-file` / `-t` 参数指定 token 文件，默认为 `token.toml`：
 
 ```bash
 # 使用环境变量（推荐）

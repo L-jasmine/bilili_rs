@@ -137,7 +137,7 @@ bili_bin like 8765806 531251 10 -t tokens.toml --uid 123456
 bili_bin like 8765806 531251 10 -t tokens.toml
 ```
 
-**注意**：`room-info` 和 `user-info` 命令**必须**指定 `--uid`。
+**注意**：`user-info` 命令**必须**指定 `--uid`。`room` 命令不指定 `--uid` 时会遍历所有 token 直到成功。
 
 ### 发送弹幕
 
@@ -220,10 +220,12 @@ bili_bin connect <房间号> --json | jq 'select(.cmd == "DANMU_MSG" and .info.g
 
 ### 获取房间信息
 
-**必须指定 `--uid`**：
-
 ```bash
-bili_bin room-info <房间号> --uid 123456
+# 指定 uid
+bili_bin room <房间号> --uid 123456
+
+# 不指定 uid 时遍历所有 token 直到成功
+bili_bin room <房间号>
 
 # 输出示例
 # 直播间信息:
@@ -239,7 +241,7 @@ bili_bin room-info <房间号> --uid 123456
 **必须指定 `--uid`**：
 
 ```bash
-bili_bin user-info <用户UID> --uid 123456
+bili_bin user <用户UID> --uid 123456
 
 # 输出示例
 # 用户信息:
@@ -253,7 +255,7 @@ bili_bin user-info <用户UID> --uid 123456
 
 ### 通用参数
 
-所有命令都支持 `--token-file` / `-t` 参数指定 token 文件，默认为 `token`：
+所有命令都支持 `--token-file` / `-t` 参数指定 token 文件，默认为 `token.toml`：
 
 ```bash
 # 使用环境变量（推荐）
